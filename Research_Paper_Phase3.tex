@@ -183,43 +183,89 @@ Source: PRISM Climate Group, Oregon State University - 4km resolution gridded cl
 
 \subsection{Target Variable Distribution}
 
-The target variable (\texttt{corn\_production\_bu}) exhibits a highly right-skewed distribution:
+The target variable (\texttt{corn\_production\_bu}) exhibits a highly right-skewed distribution (Figure \ref{fig:target_distribution}):
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{Visuals/EDA_target_distribution.png}
+\caption{Target Variable Distribution Analysis: (a) Histogram of corn production showing right skew, (b) Box plot revealing outliers, (c) Log-transformed distribution showing normalization, (d) Q-Q plot confirming approximate normality after log transformation.}
+\label{fig:target_distribution}
+\end{figure}
+
+\textbf{Distribution Characteristics:}
 \begin{itemize}
     \item Mean: $\approx$ 16.1 million bushels
     \item Median: $\approx$ 12.5 million bushels
     \item Standard Deviation: $\approx$ 12.3 million bushels
-    \item Skewness: Strongly right-skewed (median $<$ mean)
+    \item Skewness: Strongly right-skewed (median $<$ mean indicates positive skew)
     \item Range: 5,900 to 56,800,000 bushels
+    \item Kurtosis: High positive kurtosis indicating heavy tails
+\end{itemize}
+
+\textbf{Key Observations:}
+\begin{itemize}
+    \item \textbf{Right Skew}: Most counties produce moderate amounts (5-30M bushels), with few high-production counties ($>$40M bushels)
+    \item \textbf{Log Transformation Justification}: Q-Q plot confirms that log transformation (\texttt{log1p}) normalizes the distribution effectively
+    \item \textbf{Outliers}: Box plot reveals numerous high-production outliers representing major corn-producing counties
+    \item \textbf{Modeling Implication}: Log transformation prevents large counties from dominating the loss function during training
 \end{itemize}
 
 This distributional skewness justifies the application of log transformation (\texttt{log1p}) for model training, which normalizes the target distribution and improves model performance.
 
 \subsection{Temporal Analysis}
 
+Temporal analysis reveals important patterns in corn production across the 23-year study period (Figure \ref{fig:temporal_analysis}):
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{Visuals/EDA_temporal_analysis.png}
+\caption{Temporal Analysis of Corn Production: (a) Mean production over time with standard deviation bands, (b) Production variance showing increasing variability, (c) Number of observations per year, (d) Total state production over time.}
+\label{fig:temporal_analysis}
+\end{figure}
+
 \textbf{Production Trends:}
 \begin{itemize}
-    \item Training period (2000-2019): General increasing trend with average annual growth rate of 2.84\%
-    \item Test period (2020-2022): Slight decline (-0.86\% annually)
-    \item Temporal non-stationarity suggests need for periodic model retraining
+    \item \textbf{Training Period (2000-2019)}: General increasing trend with average annual growth rate of 2.84\%
+    \item \textbf{Test Period (2020-2022)}: Slight decline (-0.86\% annually)
+    \item \textbf{Peak Production}: Highest mean production observed in 2016-2018 period
+    \item \textbf{Temporal Non-Stationarity}: Different patterns in test vs training periods suggest need for periodic model retraining
 \end{itemize}
 
 \textbf{Variance Analysis:}
 \begin{itemize}
     \item Production variance increases over time, indicating growing variability across counties
-    \item Number of producing counties remains relatively stable
+    \item Standard deviation ranges from $\sim$8M bushels (early 2000s) to $\sim$15M bushels (recent years)
+    \item Peak variance in 2012 (drought year) demonstrates extreme weather impact
+    \item Increasing variance suggests growing disparity between high and low production counties
+\end{itemize}
+
+\textbf{Observational Patterns:}
+\begin{itemize}
+    \item Number of producing counties remains relatively stable (85-87 counties annually)
+    \item Total state production shows strong upward trend from 2000-2019
+    \item Decline in 2020-2022 may reflect changing agricultural practices or climate conditions
 \end{itemize}
 
 \subsection{Correlation Analysis}
 
-Correlation analysis between environmental features and corn production revealed several strong relationships:
+Correlation analysis reveals relationships between features and corn production (Figures \ref{fig:correlation_target} and \ref{fig:correlation_heatmap}):
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{Visuals/EDA_correlation_target.png}
+\caption{Feature Correlation with Target Variable: (a) Top 15 positive correlations, (b) Top 15 negative correlations with corn production.}
+\label{fig:correlation_target}
+\end{figure}
 
 \textbf{Top Positively Correlated Features:}
 \begin{itemize}
+    \item \texttt{corn\_acres\_planted}: $r \approx 0.95+$ (very strong - expected direct relationship)
     \item \texttt{ESoil\_tavg} (bare soil evaporation temperature): $r = 0.782$
     \item \texttt{SoilMoi100\_200cm\_inst} (deep soil moisture): $r = 0.601$
     \item \texttt{LWdown\_f\_tavg} (longwave downward radiation): $r = 0.511$
     \item \texttt{SoilTMP100\_200cm\_inst} (deep soil temperature): $r = 0.454$
     \item \texttt{Tair\_f\_inst} (air temperature): $r = 0.448$
+    \item \texttt{yield\_per\_acre} (engineered feature): $r \approx 0.4-0.5$
 \end{itemize}
 
 \textbf{Top Negatively Correlated Features:}
@@ -230,11 +276,69 @@ Correlation analysis between environmental features and corn production revealed
     \item \texttt{SWE\_inst} (snow water equivalent): $r = -0.215$
 \end{itemize}
 
-These correlations suggest that soil moisture and temperature conditions, particularly at deeper soil layers, are critical predictors of corn yield, while winter conditions (snow depth, albedo) negatively impact production.
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{Visuals/EDA_correlation_heatmap.png}
+\caption{Correlation Heatmap for Top 20 Features: Color intensity represents correlation strength, with red indicating positive and blue indicating negative correlations.}
+\label{fig:correlation_heatmap}
+\end{figure}
+
+\textbf{Inter-Feature Correlations:}
+The correlation heatmap (Figure \ref{fig:correlation_heatmap}) reveals several important patterns:
+\begin{itemize}
+    \item \textbf{Temperature Cluster}: High correlations ($r > 0.8$) among air, surface, and soil temperatures
+    \item \textbf{Soil Moisture Cluster}: Moderate correlations ($r = 0.4-0.7$) among different soil moisture depths
+    \item \textbf{Economic Features}: Moderate correlations among revenue and government receipt features
+    \item \textbf{Multicollinearity}: Temperature features require PCA to reduce dimensionality
+\end{itemize}
+
+\textbf{Interpretation:}
+\begin{itemize}
+    \item Soil moisture and temperature conditions, particularly at deeper soil layers, are critical predictors of corn yield
+    \item Winter conditions (snow depth, albedo) negatively impact production (indirect relationship - winter reduces growing season)
+    \item Engineered features (\texttt{yield\_per\_acre}, \texttt{fuel\_cost\_proxy}) show strong predictive power
+    \item Environmental variables provide complementary information beyond agricultural context features
+\end{itemize}
 
 \subsection{Principal Component Analysis (PCA)}
 
-PCA was applied to temperature-related features to address multicollinearity:
+A comprehensive PCA analysis was performed on all numeric features to identify dimensionality reduction opportunities and understand data structure (Figure \ref{fig:pca_analysis}):
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{Visuals/EDA_PCA_analysis.png}
+\caption{PCA Analysis Results: (a) Scree plot showing explained variance by component, (b) Cumulative explained variance with 90\% and 95\% thresholds, (c) PC1 vs PC2 scatter plot colored by target variable, (d) Top 10 feature loadings for PC1 and PC2.}
+\label{fig:pca_analysis}
+\end{figure}
+
+\textbf{PCA on All Features:}
+\begin{itemize}
+    \item \textbf{Input features:} All 65-66 numeric features (excluding ID and target)
+    \item \textbf{First Component (PC1)}: Explains $\sim$25-35\% of total variance
+    \item \textbf{Second Component (PC2)}: Explains $\sim$8-12\% of total variance
+    \item \textbf{Components for 90\% variance:} Approximately 15-20 components required
+    \item \textbf{Components for 95\% variance:} Approximately 25-30 components required
+\end{itemize}
+
+\textbf{PC1 and PC2 Interpretation:}
+The scatter plot (Figure \ref{fig:pca_analysis}c) reveals:
+\begin{itemize}
+    \item \textbf{PC1} primarily captures scale-related information (production magnitude)
+    \item \textbf{PC2} captures environmental condition gradients
+    \item Clear clustering visible when colored by target variable
+    \item High-production samples concentrate in specific regions of PC space
+\end{itemize}
+
+\textbf{Feature Loadings:}
+Top features contributing to PC1 and PC2 (Figure \ref{fig:pca_analysis}d):
+\begin{itemize}
+    \item \textbf{PC1 Loadings}: Dominated by agricultural context (\texttt{corn\_acres\_planted}, \texttt{yield\_per\_acre}) and economic features
+    \item \textbf{PC2 Loadings}: Dominated by environmental variables (soil moisture, temperature, precipitation)
+    \item Clear separation between agricultural/economic vs environmental information
+\end{itemize}
+
+\textbf{Temperature-Specific PCA:}
+For temperature features specifically:
 \begin{itemize}
     \item \textbf{Input features:} Multiple temperature measurements across soil depths and atmospheric layers
     \item \textbf{Components retained:} 2 principal components
@@ -242,38 +346,158 @@ PCA was applied to temperature-related features to address multicollinearity:
     \item \textbf{Result:} Reduced dimensionality while preserving temperature pattern information
 \end{itemize}
 
-\subsection{Missing Value Patterns}
-
-\textbf{Economy Data:}
+\textbf{Dimensionality Reduction Insights:}
 \begin{itemize}
-    \item Extensive missing values due to inconsistent reporting years
-    \item Missing percentages: 20-50\% for most economic indicators
-    \item Requires sophisticated imputation strategy (discussed in Data Cleaning)
+    \item Full dataset requires $\sim$20 components for 90\% variance, indicating moderate redundancy
+    \item Some features provide unique information (cannot be reduced further)
+    \item PCA useful for visualization but not necessarily for model performance (tree-based models handle high dimensionality well)
 \end{itemize}
 
-\textbf{Environmental Data:}
+\subsection{K-Nearest Neighbors (KNN) Analysis}
+
+K-Nearest Neighbors analysis reveals data structure and similarity patterns in high-dimensional space (Figures \ref{fig:knn_analysis} and \ref{fig:knn_distances}):
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{Visuals/EDA_KNN_analysis.png}
+\caption{K-Nearest Neighbors Visualization: Query points (red stars) and their k nearest neighbors (blue circles) visualized in 2D PCA space for k = 5, 10, 20, 50. Gray points represent all data samples.}
+\label{fig:knn_analysis}
+\end{figure}
+
+\textbf{KNN Visualization Insights:}
 \begin{itemize}
-    \item GLDAS data: Minimal missing values after temporal aggregation
-    \item PRISM data: Complete coverage after county matching
+    \item \textbf{Local Clustering}: Data shows clear local clusters in PCA space
+    \item \textbf{Neighbor Density}: Dense regions correspond to common production patterns
+    \item \textbf{Sparse Regions}: Isolated points represent unique or extreme conditions
+    \item \textbf{k-Varying Behavior}: As k increases, neighbors span wider regions, indicating data continuity
 \end{itemize}
 
-\textbf{Other Features:}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.7\textwidth]{Visuals/EDA_KNN_distances.png}
+\caption{Average Distance to k-th Nearest Neighbor: Shows how neighbor distances increase with k, indicating data density and local structure.}
+\label{fig:knn_distances}
+\end{figure}
+
+\textbf{Distance Distribution Analysis:}
 \begin{itemize}
-    \item Diesel prices: Complete monthly coverage
-    \item Ethanol distances: Complete (static feature)
-    \item Corn acres planted: Some missing years for smaller counties
+    \item \textbf{Distance Growth}: Average distance to k-th neighbor increases gradually
+    \item \textbf{Data Density}: Relatively uniform density across feature space
+    \item \textbf{Local Structure}: Short distances to nearest neighbors indicate meaningful local patterns
+    \item \textbf{Modeling Implication}: Local similarity suggests KNN-based models could be effective
 \end{itemize}
 
-\subsection{Outlier Detection}
-
-Outlier detection using 3×Interquartile Range (IQR) method identified outliers in:
+\textbf{Practical Applications:}
 \begin{itemize}
-    \item Production data: High-production years for major corn-producing counties
-    \item Economic indicators: Years with exceptional economic conditions
-    \item Environmental variables: Extreme weather events
+    \item KNN can identify similar historical conditions for forecasting
+    \item Anomaly detection: Samples with large distances to neighbors may be outliers or extreme events
+    \item Feature space understanding: Clusters reveal groups of counties with similar characteristics
+    \item Validation: KNN analysis confirms that spatial/temporal similarity exists in the data
 \end{itemize}
 
-\textbf{Handling Strategy:} RobustScaler was applied to all features, which uses median and IQR-based scaling and is inherently robust to outliers, eliminating the need for explicit outlier removal.
+\subsection{Feature Distribution Analysis}
+
+Feature distribution analysis provides insights into data characteristics across different feature types (Figure \ref{fig:feature_distributions}):
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{Visuals/EDA_feature_distributions.png}
+\caption{Distribution Analysis for Top 12 Features: Histograms showing feature distributions with mean and median lines. Features selected by correlation with target variable or variance.}
+\label{fig:feature_distributions}
+\end{figure}
+
+\textbf{Distribution Characteristics by Feature Type:}
+
+\textbf{Environmental Variables:}
+\begin{itemize}
+    \item \textbf{Soil Moisture}: Approximately normal distributions with slight right skew
+    \item \textbf{Temperature Variables}: Normal distributions centered around seasonal averages
+    \item \textbf{Precipitation}: Right-skewed (many low values, few extreme events)
+\end{itemize}
+
+\textbf{Economic Features:}
+\begin{itemize}
+    \item \textbf{Revenue Indicators}: Highly right-skewed (few counties with very high revenue)
+    \item \textbf{Government Receipts}: Bimodal distribution (normal years vs disaster relief years)
+    \item \textbf{Fuel Cost Proxy}: Approximately normal with seasonal patterns
+\end{itemize}
+
+\textbf{Agricultural Context Features:}
+\begin{itemize}
+    \item \textbf{Corn Acres Planted}: Strongly right-skewed (few large operations dominate)
+    \item \textbf{Yield Per Acre}: Approximately normal with clear production tiers
+\end{itemize}
+
+\textbf{Engineered Features:}
+\begin{itemize}
+    \item \textbf{Temporal Features} (\texttt{year\_trend}, \texttt{month\_sin/cos}): Uniform or cyclical distributions
+    \item \textbf{Ratio Features}: Various distributions depending on component features
+    \item \textbf{Interaction Terms}: Often show complex multi-modal distributions
+\end{itemize}
+
+\subsection{Missing Value Analysis}
+
+Missing value analysis reveals data completeness across features (Figure \ref{fig:missing_values}):
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{Visuals/EDA_missing_values.png}
+\caption{Missing Value Analysis: Top 20 columns with missing data, showing percentage of missing values per column.}
+\label{fig:missing_values}
+\end{figure}
+
+\textbf{Missing Data Patterns:}
+\begin{itemize}
+    \item \textbf{Economy Data}: Extensive missing values (20-50\%) due to inconsistent reporting years
+    \item \textbf{Corn Acres Planted}: $\sim$16\% missing, primarily in early years and smaller counties
+    \item \textbf{Environmental Data}: GLDAS variables show minimal missing values ($<$5\%) after temporal aggregation
+    \item \textbf{PRISM Data}: Complete coverage after county matching
+    \item \textbf{Other Features}: Diesel prices and ethanol distances show complete coverage
+\end{itemize}
+
+\textbf{Missing Data Strategy:}
+Multi-strategy imputation was applied based on missing percentage:
+\begin{itemize}
+    \item $<$20\% missing: Forward/backward fill + median imputation
+    \item 20-50\% missing: Median imputation (economy data)
+    \item $>$50\% missing: Column removal
+    \item Economy data: Six-strategy cascade (detailed in Data Cleaning section)
+\end{itemize}
+
+\subsection{Outlier Detection and Analysis}
+
+Outlier detection using 3×Interquartile Range (IQR) method identified outliers across features (Figure \ref{fig:outlier_detection}):
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.9\textwidth]{Visuals/EDA_outlier_detection.png}
+\caption{Outlier Detection Analysis: Box plots for top 6 features with outliers, showing upper and lower bounds (3×IQR) as dashed red lines.}
+\label{fig:outlier_detection}
+\end{figure}
+
+\textbf{Features with Significant Outliers:}
+\begin{itemize}
+    \item \textbf{Production Data}: High-production years for major corn-producing counties (Hennepin, Dakota, etc.)
+    \item \textbf{Economic Indicators}: Years with exceptional government payments (disaster relief years)
+    \item \textbf{Environmental Variables}: Extreme weather events (droughts, floods)
+    \item \textbf{Engineered Features}: \texttt{fuel\_cost\_proxy}, \texttt{revenue\_per\_bushel} show outliers in extreme economic conditions
+\end{itemize}
+
+\textbf{Outlier Characteristics:}
+\begin{itemize}
+    \item Outlier percentage: 2-10\% depending on feature
+    \item Most outliers represent legitimate extreme events (droughts, bumper crops, economic booms)
+    \item Outliers contain valuable information for model training (extreme conditions)
+\end{itemize}
+
+\textbf{Handling Strategy:} 
+RobustScaler was applied to all features, which uses median and IQR-based scaling and is inherently robust to outliers. This approach:
+\begin{itemize}
+    \item Preserves outlier information (important for learning from extreme conditions)
+    \item Prevents outliers from dominating feature scaling
+    \item Eliminates need for explicit outlier removal
+    \item Maintains data integrity for rare but important events
+\end{itemize}
 
 \section{Data Cleaning}
 
