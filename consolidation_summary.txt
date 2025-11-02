@@ -1,0 +1,77 @@
+DATA CONSOLIDATION SUMMARY - PHASE 3
+================================================================================
+
+Dataset Shape: 14007 rows x 54 columns
+Unique Counties: 87
+Year Range: 2000 - 2022
+
+Columns:
+    1. fips
+    2. county_name
+    3. Albedo_inst
+    4. AvgSurfT_inst
+    5. CanopInt_inst
+    6. ECanop_tavg
+    7. ESoil_tavg
+    8. Evap_tavg
+    9. LWdown_f_tavg
+   10. Lwnet_tavg
+   11. PotEvap_tavg
+   12. Psurf_f_inst
+   13. Qair_f_inst
+   14. Qg_tavg
+   15. Qh_tavg
+   16. Qle_tavg
+   17. Qs_acc
+   18. Qsb_acc
+   19. Qsm_acc
+   20. Rainf_f_tavg
+   21. Rainf_tavg
+   22. RootMoist_inst
+   23. SWE_inst
+   24. SWdown_f_tavg
+   25. SnowDepth_inst
+   26. Snowf_tavg
+   27. SoilMoi0_10cm_inst
+   28. SoilMoi100_200cm_inst
+   29. SoilMoi10_40cm_inst
+   30. SoilMoi40_100cm_inst
+   31. SoilTMP0_10cm_inst
+   32. SoilTMP100_200cm_inst
+   33. SoilTMP10_40cm_inst
+   34. SoilTMP40_100cm_inst
+   35. Swnet_tavg
+   36. Tair_f_inst
+   37. Tveg_tavg
+   38. Wind_f_inst
+   39. year
+   40. month
+   41. corn_production_bu
+   42. corn_acres_planted
+   43. diesel_usd_gal
+   44. income_farmrelated__receipts_measured_in_x
+   45. govt_programs_federal__receipts_measured
+   46. income_farmrelated__receipts_measured_in_y
+   47. dist_km_ethanol
+   48. prism_ppt_inches
+   49. prism_tmin_degrees_f
+   50. prism_tmean_degrees_f
+   51. prism_tmax_degrees_f
+   52. prism_tdmean_degrees_f
+   53. prism_vpdmin_hpa
+   54. prism_vpdmax_hpa
+
+================================================================================
+Missing Data:
+                                    Column  Missing Count  Missing %
+                        corn_acres_planted          14007     100.00
+income_farmrelated__receipts_measured_in_x          14007     100.00
+  govt_programs_federal__receipts_measured          14007     100.00
+income_farmrelated__receipts_measured_in_y          14007     100.00
+                          prism_ppt_inches           6090      43.48
+                      prism_tmin_degrees_f           6090      43.48
+                     prism_tmean_degrees_f           6090      43.48
+                      prism_tmax_degrees_f           6090      43.48
+                    prism_tdmean_degrees_f           6090      43.48
+                          prism_vpdmin_hpa           6090      43.48
+                          prism_vpdmax_hpa           6090      43.48
