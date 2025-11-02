@@ -53,9 +53,22 @@ try:
     df_planted['Value'] = df_planted['Value'].astype(str).str.replace(',', '').replace('(D)', np.nan)
     df_planted['Value'] = pd.to_numeric(df_planted['Value'], errors='coerce')
     
-    # Extract County ANSI (FIPS code) - ensure it's properly formatted
-    df_planted['fips'] = df_planted['County ANSI'].astype(str).str.zfill(5)
-    df_planted['fips'] = pd.to_numeric(df_planted['fips'], errors='coerce')
+    # Extract FIPS code: Combine State ANSI (27 for Minnesota) + County ANSI
+    # Minnesota FIPS codes are 27001-27171 where 27 = state, 001-171 = county
+    if 'State ANSI' in df_planted.columns and 'County ANSI' in df_planted.columns:
+        # Convert County ANSI to numeric first (handles floats like 9.0), then to int, then string
+        # This ensures 9.0 -> 9 -> "9" -> "009" -> "27009"
+        state_code = df_planted['State ANSI'].astype(str).str.strip()
+        county_code_numeric = pd.to_numeric(df_planted['County ANSI'], errors='coerce')
+        county_code = county_code_numeric.fillna(0).astype(int).astype(str).str.zfill(3)
+        df_planted['fips'] = (state_code + county_code).astype(str)
+        df_planted['fips'] = pd.to_numeric(df_planted['fips'], errors='coerce')
+        # Filter out invalid FIPS (where county was NaN or 0)
+        df_planted = df_planted[df_planted['fips'] >= 27001]
+    else:
+        # Fallback: use County ANSI only (old method)
+        df_planted['fips'] = df_planted['County ANSI'].astype(str).str.zfill(5)
+        df_planted['fips'] = pd.to_numeric(df_planted['fips'], errors='coerce')
     
     # Filter out rows without valid FIPS or values
     df_planted = df_planted.dropna(subset=['fips', 'Value', 'Year'])
@@ -66,11 +79,15 @@ try:
     
     print(f"  ✓ Processed planted acres: {df_planted_agg.shape[0]} county-year combinations")
     print(f"  ✓ Year range: {df_planted_agg['year'].min()} - {df_planted_agg['year'].max()}")
+    print(f"  ✓ Unique FIPS: {df_planted_agg['fips'].nunique()}")
+    print(f"  ✓ Sample FIPS: {sorted(df_planted_agg['fips'].unique())[:5]}")
     
     # Merge with base dataset
     if not df_base.empty:
+        before_merge = len(df_base)
         df_base = df_base.merge(df_planted_agg, on=['fips', 'year'], how='left')
-        print(f"  ✓ Merged planted acres data")
+        after_merge = df_base['corn_acres_planted'].notna().sum()
+        print(f"  ✓ Merged planted acres data: {after_merge}/{before_merge} rows matched ({100*after_merge/before_merge:.1f}%)")
     else:
         df_base = df_planted_agg.copy()
         
@@ -129,9 +146,21 @@ try:
     df_economy['Value'] = df_economy['Value'].astype(str).str.replace(',', '').replace('(D)', np.nan)
     df_economy['Value'] = pd.to_numeric(df_economy['Value'], errors='coerce')
     
-    # Extract FIPS
-    df_economy['fips'] = df_economy['County ANSI'].astype(str).str.zfill(5)
-    df_economy['fips'] = pd.to_numeric(df_economy['fips'], errors='coerce')
+    # Extract FIPS code: Combine State ANSI + County ANSI (same as corn data)
+    if 'State ANSI' in df_economy.columns and 'County ANSI' in df_economy.columns:
+        # Convert County ANSI to numeric first (handles floats like 9.0), then to int, then string
+        # This ensures 9.0 -> 9 -> "9" -> "009" -> "27009"
+        state_code = df_economy['State ANSI'].astype(str).str.strip()
+        county_code_numeric = pd.to_numeric(df_economy['County ANSI'], errors='coerce')
+        county_code = county_code_numeric.fillna(0).astype(int).astype(str).str.zfill(3)
+        df_economy['fips'] = (state_code + county_code).astype(str)
+        df_economy['fips'] = pd.to_numeric(df_economy['fips'], errors='coerce')
+        # Filter out invalid FIPS (where county was NaN or 0)
+        df_economy = df_economy[df_economy['fips'] >= 27001]
+    else:
+        # Fallback: use County ANSI only (old method)
+        df_economy['fips'] = df_economy['County ANSI'].astype(str).str.zfill(5)
+        df_economy['fips'] = pd.to_numeric(df_economy['fips'], errors='coerce')
     
     # Filter valid records
     df_economy = df_economy.dropna(subset=['fips', 'Value', 'Year'])
@@ -149,10 +178,22 @@ try:
     for indicator in key_indicators:
         df_ind = df_economy[df_economy['Data Item'] == indicator].copy()
         if not df_ind.empty:
-            col_name = indicator.lower().replace(',', '').replace(' ', '_').replace('-', '')[:40]
+            # Create better column names based on indicator type
+            if 'INCOME, FARM-RELATED - RECEIPTS, MEASURED IN $' in indicator and '/ OPERATION' not in indicator:
+                col_name = 'income_farmrelated_receipts_total_usd'
+            elif 'INCOME, FARM-RELATED - RECEIPTS, MEASURED IN $ / OPERATION' in indicator:
+                col_name = 'income_farmrelated_receipts_per_operation_usd'
+            elif 'GOVT PROGRAMS, FEDERAL - RECEIPTS, MEASURED IN $' in indicator:
+                col_name = 'govt_programs_federal_receipts_usd'
+            else:
+                # Fallback: clean up the indicator name
+                col_name = indicator.lower().replace(',', '').replace(' ', '_').replace('-', '_').replace('/', '_')
+                col_name = ''.join(c for c in col_name if c.isalnum() or c == '_')[:50]
+            
             df_ind_pivot = df_ind[['fips', 'Year', 'Value']].copy()
             df_ind_pivot.columns = ['fips', 'year', col_name]
             economy_indicators.append(df_ind_pivot)
+            print(f"    ✓ Processed indicator: {indicator[:60]}... -> {col_name}")
     
     if economy_indicators:
         df_economy_merged = economy_indicators[0]
@@ -160,16 +201,76 @@ try:
             df_economy_merged = df_economy_merged.merge(df_ind, on=['fips', 'year'], how='outer')
         
         print(f"  ✓ Processed {len(economy_indicators)} economic indicators")
+        print(f"  ✓ Economy data shape: {df_economy_merged.shape[0]} rows, {len(economy_indicators)} columns")
+        print(f"  ✓ Year range: {df_economy_merged['year'].min()} - {df_economy_merged['year'].max()}")
+        print(f"  ✓ Unique FIPS: {df_economy_merged['fips'].nunique()}")
         
         # Merge with base dataset
         if not df_base.empty:
+            before_merge = len(df_base)
             df_base = df_base.merge(df_economy_merged, on=['fips', 'year'], how='left')
-            print(f"  ✓ Merged economy data (will forward-fill missing years)")
+            # Count matches for each economy column
+            economy_cols = [col for col in df_economy_merged.columns if col not in ['fips', 'year']]
+            matches_before = {col: df_base[col].notna().sum() for col in economy_cols}
+            print(f"  ✓ Merged economy data (before imputation): {matches_before}")
             
-            # Forward-fill missing years for each county
-            for col in df_economy_merged.columns:
-                if col not in ['fips', 'year']:
-                    df_base[col] = df_base.groupby('fips')[col].ffill()
+            print(f"  ✓ Applying multi-strategy imputation for economy data...")
+            
+            # Sort by fips and year to ensure proper temporal order for interpolation
+            df_base = df_base.sort_values(['fips', 'year']).reset_index(drop=True)
+            
+            # Multi-strategy imputation for economy data
+            for col in economy_cols:
+                initial_missing = df_base[col].isna().sum()
+                
+                # Strategy 1: Forward fill (last known value forward)
+                df_base[col] = df_base.groupby('fips')[col].ffill()
+                after_ffill = df_base[col].isna().sum()
+                
+                # Strategy 2: Backward fill (first known value backward)
+                df_base[col] = df_base.groupby('fips')[col].bfill()
+                after_bfill = df_base[col].isna().sum()
+                
+                # Strategy 3: Linear interpolation within each county (time-based)
+                # Groupby preserves order, so interpolation works correctly
+                df_base[col] = df_base.groupby('fips', group_keys=False)[col].apply(
+                    lambda x: x.interpolate(method='linear', limit_direction='both')
+                )
+                after_interp = df_base[col].isna().sum()
+                
+                # Strategy 4: Fill with county median (for counties with some data but gaps)
+                county_medians = df_base.groupby('fips')[col].median()
+                for fips in df_base[df_base[col].isna()]['fips'].unique():
+                    if fips in county_medians.index and pd.notna(county_medians[fips]):
+                        mask = (df_base['fips'] == fips) & (df_base[col].isna())
+                        df_base.loc[mask, col] = county_medians[fips]
+                after_median = df_base[col].isna().sum()
+                
+                # Strategy 5: Fill with year-specific median across all counties (for counties with no data)
+                year_medians = df_base.groupby('year')[col].median()
+                for year in df_base[df_base[col].isna()]['year'].unique():
+                    if year in year_medians.index and pd.notna(year_medians[year]):
+                        mask = (df_base['year'] == year) & (df_base[col].isna())
+                        df_base.loc[mask, col] = year_medians[year]
+                after_year_median = df_base[col].isna().sum()
+                
+                # Strategy 6: Fill with overall median (last resort)
+                overall_median = df_base[col].median()
+                if pd.notna(overall_median):
+                    df_base[col] = df_base[col].fillna(overall_median)
+                
+                final_missing = df_base[col].isna().sum()
+                filled = initial_missing - final_missing
+                
+                print(f"    {col}:")
+                print(f"      Initial missing: {initial_missing} ({100*initial_missing/len(df_base):.1f}%)")
+                print(f"      After forward-fill: {after_ffill} missing (filled {initial_missing - after_ffill})")
+                print(f"      After backward-fill: {after_bfill} missing (filled {after_ffill - after_bfill})")
+                print(f"      After interpolation: {after_interp} missing (filled {after_bfill - after_interp})")
+                print(f"      After county median: {after_median} missing (filled {after_interp - after_median})")
+                print(f"      After year median: {after_year_median} missing (filled {after_median - after_year_median})")
+                print(f"      Final missing: {final_missing} ({100*final_missing/len(df_base):.1f}%)")
+                print(f"      Total filled: {filled} values ({100*filled/initial_missing:.1f}% of missing)")
         else:
             df_base = df_economy_merged.copy()
     else:
@@ -214,19 +315,37 @@ except Exception as e:
 print("\n[6/6] Processing PRISM precipitation data...")
 try:
     df_prism = pd.read_csv(data_path / "PRISM_percipitation_data.csv")
-    print(f"  ✓ Loaded PRISM data: {df_prism.shape[0]} rows")
+    print(f"  ✓ Loaded PRISM data: {df_prism.shape[0]} rows, {df_prism.shape[1]} columns")
+    print(f"  ✓ Available columns: {list(df_prism.columns)}")
     
-    # Parse date column
-    if 'date' in df_prism.columns:
+    # Parse date column - handle both 'Date' (capital) and 'date' (lowercase)
+    # Date format is 'YYYY-MM' (e.g., '2000-01')
+    if 'Date' in df_prism.columns:
+        # Parse YYYY-MM format
+        df_prism['date_parsed'] = pd.to_datetime(df_prism['Date'], format='%Y-%m', errors='coerce')
+        df_prism = df_prism.dropna(subset=['date_parsed'])
+        df_prism['year'] = df_prism['date_parsed'].dt.year
+        df_prism['month'] = df_prism['date_parsed'].dt.month
+        df_prism = df_prism.drop(columns=['date_parsed'])
+        print(f"  ✓ Parsed Date column (format: YYYY-MM)")
+    elif 'date' in df_prism.columns:
+        # Fallback for lowercase date column
         df_prism['date'] = pd.to_datetime(df_prism['date'], errors='coerce')
         df_prism = df_prism.dropna(subset=['date'])
         df_prism['year'] = df_prism['date'].dt.year
         df_prism['month'] = df_prism['date'].dt.month
     elif 'Date_old' in df_prism.columns:
+        # Legacy format support
         df_prism['date'] = pd.to_datetime(df_prism['Date_old'], format='%Y-%m', errors='coerce')
         df_prism = df_prism.dropna(subset=['date'])
         df_prism['year'] = df_prism['date'].dt.year
         df_prism['month'] = df_prism['date'].dt.month
+    else:
+        raise ValueError("No recognized date column found (expected 'Date', 'date', or 'Date_old')")
+    
+    print(f"  ✓ Extracted year and month from date")
+    print(f"  ✓ Year range: {df_prism['year'].min()} - {df_prism['year'].max()}")
+    print(f"  ✓ Unique months: {sorted(df_prism['month'].unique())}")
     
     # Create FIPS mapping from Name/Location
     # Try to match county names from base dataset first
@@ -235,49 +354,77 @@ try:
         county_fips_map = df_base[['fips', 'county_name']].drop_duplicates()
         county_fips_dict = dict(zip(county_fips_map['county_name'].str.upper().str.strip(), 
                                    county_fips_map['fips']))
+        print(f"  ✓ Created county name to FIPS mapping from base dataset ({len(county_fips_dict)} counties)")
     
     # Try matching PRISM names directly
     if 'Name' in df_prism.columns:
         df_prism['Name_upper'] = df_prism['Name'].str.upper().str.strip()
         df_prism['fips'] = df_prism['Name_upper'].map(county_fips_dict)
         
-        # If still missing, try to extract FIPS from Longitude/Latitude or use alternative mapping
-        if df_prism['fips'].isna().any():
-            print(f"  ⚠ {df_prism['fips'].isna().sum()} PRISM records could not be matched to FIPS")
-            print(f"     Attempting to match by coordinates or location name...")
+        unmatched_count = df_prism['fips'].isna().sum()
+        if unmatched_count > 0:
+            print(f"  ⚠ {unmatched_count} PRISM records could not be matched to FIPS initially")
+            print(f"     Attempting alternative matching strategies...")
             
-            # Try matching by removing spaces and special characters
+            # Try matching by removing spaces and special characters, partial matching
             if not df_base.empty and 'county_name' in df_base.columns:
                 base_counties = df_base[['fips', 'county_name']].drop_duplicates()
-                base_counties['name_clean'] = base_counties['county_name'].str.upper().str.strip().str.replace(' ', '')
-                prism_names_clean = df_prism['Name'].str.upper().str.strip().str.replace(' ', '')
+                base_counties['name_clean'] = base_counties['county_name'].str.upper().str.strip().str.replace(' ', '').str.replace('-', '')
                 
-                for idx, prism_name in prism_names_clean.items():
-                    if pd.isna(df_prism.loc[idx, 'fips']):
-                        match = base_counties[base_counties['name_clean'].str.contains(prism_name, na=False, case=False)]
-                        if not match.empty:
-                            df_prism.loc[idx, 'fips'] = match.iloc[0]['fips']
+                # Also try reverse matching (PRISM name in base county name)
+                for idx in df_prism[df_prism['fips'].isna()].index:
+                    prism_name_clean = df_prism.loc[idx, 'Name'].upper().strip().replace(' ', '').replace('-', '')
+                    
+                    # Try exact match first
+                    match = base_counties[base_counties['name_clean'] == prism_name_clean]
+                    if match.empty:
+                        # Try contains match (PRISM name contains base name or vice versa)
+                        match = base_counties[base_counties['name_clean'].str.contains(prism_name_clean, na=False, case=False)]
+                        if match.empty:
+                            match = base_counties[base_counties['county_name'].str.upper().str.contains(df_prism.loc[idx, 'Name'], na=False, case=False)]
+                    
+                    if not match.empty:
+                        df_prism.loc[idx, 'fips'] = match.iloc[0]['fips']
+                
+                remaining_unmatched = df_prism['fips'].isna().sum()
+                if remaining_unmatched > 0:
+                    print(f"  ⚠ {remaining_unmatched} records still unmatched - will be filtered out")
+                else:
+                    print(f"  ✓ Successfully matched all PRISM records to FIPS")
         
         df_prism = df_prism.drop(columns=['Name_upper'] if 'Name_upper' in df_prism.columns else [])
+    else:
+        print("  ⚠ WARNING: 'Name' column not found in PRISM data - cannot map to FIPS")
+        df_prism['fips'] = np.nan
     
-    # Filter valid records
+    # Filter valid records (must have FIPS, year, and month)
+    initial_count = len(df_prism)
     df_prism = df_prism.dropna(subset=['fips', 'year', 'month'])
+    filtered_count = len(df_prism)
+    if initial_count != filtered_count:
+        print(f"  ✓ Filtered to {filtered_count} valid records (removed {initial_count - filtered_count} invalid)")
     
-    # Aggregate by fips, year, month (take mean if multiple records)
+    # Aggregate by fips, year, month (take mean if multiple records for same combination)
     prism_cols = ['ppt (inches)', 'tmin (degrees F)', 'tmean (degrees F)', 
                   'tmax (degrees F)', 'tdmean (degrees F)', 'vpdmin (hPa)', 'vpdmax (hPa)']
     available_cols = [col for col in prism_cols if col in df_prism.columns]
     
     if available_cols:
+        print(f"  ✓ Found {len(available_cols)} PRISM data columns: {available_cols}")
         df_prism_agg = df_prism.groupby(['fips', 'year', 'month'])[available_cols].mean().reset_index()
         
-        # Rename columns with prism prefix
-        rename_dict = {col: f'prism_{col.lower().replace(" ", "_").replace("(", "").replace(")", "")}' 
-                      for col in available_cols}
+        # Rename columns with prism prefix and clean up formatting
+        rename_dict = {}
+        for col in available_cols:
+            new_name = f'prism_{col.lower().replace(" ", "_").replace("(", "").replace(")", "").replace("degrees_f", "degf").replace("inches", "in")}'
+            # Clean up any double underscores or trailing underscores
+            new_name = new_name.replace('__', '_').strip('_')
+            rename_dict[col] = new_name
         df_prism_agg = df_prism_agg.rename(columns=rename_dict)
         
         print(f"  ✓ Processed PRISM data: {df_prism_agg.shape[0]} county-year-month combinations")
         print(f"  ✓ Year range: {df_prism_agg['year'].min()} - {df_prism_agg['year'].max()}")
+        print(f"  ✓ Unique counties: {df_prism_agg['fips'].nunique()}")
         
         # Merge with base dataset
         if not df_base.empty:
@@ -285,21 +432,25 @@ try:
             if 'month' in df_base.columns:
                 merge_keys.append('month')
                 df_base = df_base.merge(df_prism_agg, on=merge_keys, how='left')
+                print(f"  ✓ Merged PRISM data (monthly level)")
             else:
                 # Aggregate to yearly if no month in base
-                df_prism_yearly = df_prism_agg.groupby(['fips', 'year']).mean().reset_index()
-                df_prism_yearly = df_prism_yearly.drop(columns=['month'] if 'month' in df_prism_yearly.columns else [])
+                df_prism_yearly = df_prism_agg.groupby(['fips', 'year'])[[col for col in df_prism_agg.columns if col not in ['fips', 'year', 'month']]].mean().reset_index()
                 df_base = df_base.merge(df_prism_yearly, on=['fips', 'year'], how='left')
-            print(f"  ✓ Merged PRISM data")
+                print(f"  ✓ Merged PRISM data (yearly aggregated)")
         else:
             df_base = df_prism_agg.copy()
+            print(f"  ✓ Created base dataset from PRISM data")
     else:
-        print("  ⚠ WARNING: No PRISM columns found")
+        print("  ⚠ WARNING: No expected PRISM columns found")
+        print(f"     Available columns: {list(df_prism.columns)}")
         
 except FileNotFoundError:
-    print("  ⚠ WARNING: PRISM_percipitation_data.csv not found")
+    print("  ⚠ WARNING: PRISM_percipitation_data.csv not found in Data directory")
 except Exception as e:
     print(f"  ⚠ WARNING: Error processing PRISM data: {e}")
+    import traceback
+    traceback.print_exc()
 
 # ============================================================================
 # FINAL PROCESSING AND SAVING

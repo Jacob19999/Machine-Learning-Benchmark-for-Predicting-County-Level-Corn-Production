@@ -49,29 +49,19 @@ Columns:
    41. corn_production_bu
    42. corn_acres_planted
    43. diesel_usd_gal
-   44. income_farmrelated__receipts_measured_in_x
-   45. govt_programs_federal__receipts_measured
-   46. income_farmrelated__receipts_measured_in_y
+   44. income_farmrelated_receipts_total_usd
+   45. govt_programs_federal_receipts_usd
+   46. income_farmrelated_receipts_per_operation_usd
    47. dist_km_ethanol
-   48. prism_ppt_inches
-   49. prism_tmin_degrees_f
-   50. prism_tmean_degrees_f
-   51. prism_tmax_degrees_f
-   52. prism_tdmean_degrees_f
+   48. prism_ppt_in
+   49. prism_tmin_degf
+   50. prism_tmean_degf
+   51. prism_tmax_degf
+   52. prism_tdmean_degf
    53. prism_vpdmin_hpa
    54. prism_vpdmax_hpa
 
 ================================================================================
 Missing Data:
-                                    Column  Missing Count  Missing %
-                        corn_acres_planted          14007     100.00
-income_farmrelated__receipts_measured_in_x          14007     100.00
-  govt_programs_federal__receipts_measured          14007     100.00
-income_farmrelated__receipts_measured_in_y          14007     100.00
-                          prism_ppt_inches           6090      43.48
-                      prism_tmin_degrees_f           6090      43.48
-                     prism_tmean_degrees_f           6090      43.48
-                      prism_tmax_degrees_f           6090      43.48
-                    prism_tdmean_degrees_f           6090      43.48
-                          prism_vpdmin_hpa           6090      43.48
-                          prism_vpdmax_hpa           6090      43.48
+            Column  Missing Count  Missing %
+corn_acres_planted           2247      16.04
