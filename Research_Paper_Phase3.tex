@@ -16,6 +16,7 @@
 \usepackage{enumitem}
 \usepackage{siunitx}
 \usepackage{fixmath}
+\usepackage{adjustbox}
 
 % Standard research paper margins and spacing
 \geometry{
@@ -701,10 +702,10 @@ Model performance was evaluated on the test set (years 2020-2022) using metrics 
 
 \begin{table}[htb]
 \centering
-\small
+\footnotesize
 \caption{Model Performance Comparison - With \texttt{corn\_acres\_planted} (66 Features)}
 \label{tab:performance}
-\begin{tabular}{lcccc}
+\adjustbox{width=\columnwidth,center}{\begin{tabular}{lcccc}
 \toprule
 Model & R² Score & RMSE (bushels) & MAE (bushels) & MAPE (\%) \\
 \midrule
@@ -717,15 +718,15 @@ SVM & 0.9104 & 4,067,153 & 2,061,482 & 15.98 \\
 Temporal NN (LSTM) & 0.8602 & 5,079,808 & 3,263,413 & 18.87 \\
 TCN & -0.3718 & 21,092,452 & 13,910,562 & 74.08 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \begin{table}[htb]
 \centering
-\small
+\footnotesize
 \caption{Model Performance Comparison - Without \texttt{corn\_acres\_planted} (65 Features)}
 \label{tab:performance_noacres}
-\begin{tabular}{lcccc}
+\adjustbox{width=\columnwidth,center}{\begin{tabular}{lcccc}
 \toprule
 Model & R² Score & RMSE (bushels) & MAE (bushels) & MAPE (\%) \\
 \midrule
@@ -738,7 +739,7 @@ SVM & 0.8956 & 4,523,456 & 2,345,678 & 19.87 \\
 Temporal NN (LSTM) & 0.8234 & 5,892,456 & 3,892,345 & 24.56 \\
 TCN & -0.4523 & 22,456,789 & 14,892,456 & 81.23 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 Key observations from the performance comparison reveal that excluding \texttt{corn\_acres\_planted} results in a performance degradation with R² decrease of 1.5\% (LightGBM: 0.9930 → 0.9780) and RMSE increase of 89.5\% (1,137,001 → 2,154,832 bushels). However, relative model rankings are preserved, with gradient boosting methods (LightGBM and XGBoost) remaining superior across both configurations. The models demonstrate robust performance, maintaining strong predictive capability (R² > 0.97 for top models) even without the most important feature. This robustness stems from feature redundancy, where other features such as \texttt{fuel\_cost\_proxy}, \texttt{yield\_per\_acre}, and economic indicators compensate for the removed feature.
