@@ -79,7 +79,7 @@
 \makeatother
 
 \title{\large\textbf{A Machine Learning Benchmark for Predicting County-Level Corn Production in Minnesota Using Multi-Source Satellite, Environmental, and Economic Data}}
-\author{\small [Author Name]}
+\author{\small Tang Zi Jian (Jacob), Emma Wele, Victor C, Onishi Rei}
 \date{\small \today}
 
 \begin{document}
@@ -88,34 +88,37 @@
 
 \begin{abstract}
 \small
-This research presents a comprehensive machine learning benchmark framework for predicting county-level corn production in Minnesota by integrating multiple heterogeneous data sources, including satellite-derived environmental variables from the Global Land Data Assimilation System (GLDAS), economic indicators, fuel prices, transportation infrastructure data, and precipitation data from the Parameter-elevation Regressions on Independent Slopes Model (PRISM).
-Eight machine learning algorithms were systematically evaluated across different complexity levels: Polynomial Regression, Support Vector Machine (SVM), Random Forest, XGBoost, LightGBM, TabNet, Temporal Neural Networks (LSTM), and Temporal Convolutional Networks (TCN).
-The study employed rigorous preprocessing including temporal train-test splitting (2000-2019 for training, 2020-2022 for testing), multi-strategy imputation, comprehensive feature engineering (66 features), and robust scaling.
-The LightGBM model achieved superior performance with an R² of \num{0.9930} and root mean squared error (RMSE) of \num{1137001} bushels, explaining 99.30\% of variance in corn production.
-Feature importance analysis revealed that agricultural context features (\texttt{corn\_acres\_planted}, yield per acre) dominated with 48.2\% importance, followed by economic indicators (\texttt{fuel\_cost\_proxy}, revenue metrics) and environmental variables.
-The results demonstrate that gradient boosting algorithms, particularly LightGBM, significantly outperform traditional ensemble methods and deep learning architectures for this multi-source tabular regression task.
-Practical implications include enhanced supply chain planning, risk mitigation for agricultural stakeholders, and optimized resource allocation through accurate yield forecasting.
+This research presents a machine learning benchmarking framework for predicting corn yield production in Minnesota.
+Using multiple data sources, including satellite environmental variables from the Global Land Data Assimilation System (GLDAS), economic indicators like fuel prices and transportation infrastructure data, as well as precipitation data from Parameter-elevation Regressions on Independent Slopes (PRISM) model.
+We use a total of eight machine learning algorithms that were systematically evaluated across different complexity levels: Polynomial Regression, Support Vector Machine, Random Forest, XGBoost, LightGBM, TabNet, Temporal Neural Network (LSTM), and Temporal Convolutional Neural Network (TCN).
+This study employed rigorous preprocessing, including train-test splitting (2000-2019 for training, 2020-2022 for testing), data imputation, comprehensive feature engineering, and scaling.
+The LightGBM model proved to be the best performing model with an R² of \num{0.993} and root mean squared error (RMSE) of \num{1137001} bushels, explaining 99.3\% of variance in corn production.
+The LightGBM model also performed best without corn acres planted features, achieving an R² score of \num{0.978} with an RMSE of \num{2154832} bushels.
+Analysis of Feature Importance Analysis revealed that agricultural context features (like corn planted yields per acre) dominate with 48.2\% importance, followed by various economic factors like fuel cost proxy, economic and revenue metrics, followed finally by environmental contexts like soil moisture and precipitation.
+Our results showed that gradient boosting algorithms like LightGBM significantly outperformed traditional ensemble methods and deep learning architectures for this tabular regression task.
+Practical implications include better supply chain planning, risk mitigation for various agriculture stakeholders, and optimized resource allocation through accurate yield forecasting.
 
 \textbf{Keywords:} Agricultural yield prediction, machine learning, satellite remote sensing, LightGBM, multi-source data integration, GLDAS, PRISM, economic indicators, supply chain optimization
 \end{abstract}
 
 \section{Introduction}
 
-Agriculture represents a cornerstone of the United States economy, with corn production playing a particularly critical role in national food security, biofuel production, and economic stability \cite{vieira2023corn}.
-The agricultural sector contributes approximately \SI{1.4}{\percent} to the U.S. gross domestic product, and corn specifically accounts for over \SI{15}{\percent} of total agricultural value, representing billions of dollars in economic activity annually.
+Agriculture is one of the major pillars of the United States economy, with corn production playing a particularly critical role in national food security, biofuel production, and economic stability \cite{vieira2023corn}.
+The agricultural sector contributes approximately \SI{1.40}{\percent} to the U.S. gross domestic product, and corn specifically accounts for over \SI{15.0}{\percent} of total agricultural value, representing billions of dollars in annual economic activity.
 Beyond direct economic impact, corn production influences global food prices, biofuel markets, and supply chain dynamics across multiple industries including livestock feed, ethanol production, and food processing.
-Accurate yield forecasting enables stakeholders including farmers, agricultural cooperatives, commodity traders, policymakers, and supply chain managers to make informed decisions regarding planting strategies, resource allocation, pricing, risk management, and market planning.
+Accurate crop yield prediction enables stakeholders including farmers, agricultural cooperatives, commodity traders, policymakers, and supply chain managers to make informed decisions regarding planting strategies, resource allocation, pricing, risk management, and market planning.
 
-Traditional forecasting methods for agricultural yield prediction rely primarily on historical averages, field surveys, and expert knowledge, approaches that are fundamentally limited in their ability to capture spatial-temporal variability and adapt to changing conditions.
+Traditional methods for agricultural yield prediction rely primarily on historical averages, field surveys, and expert knowledge, all of which are fundamentally limited in their ability to capture the myriad of dynamic changes over time periods and adapting to changing conditions.
 Field surveys provide valuable ground truth data but are time-consuming, expensive, and limited in spatial coverage.
-Historical averages fail to account for inter-annual variability driven by climate extremes, technological advances, economic conditions, and evolving agricultural practices.
-These limitations become particularly problematic given increasing climate variability, where extreme weather events such as droughts, floods, and temperature anomalies create significant year-to-year production fluctuations that historical averages cannot anticipate.
-The integration of satellite remote sensing data with economic and agricultural context data, combined with advanced machine learning techniques, offers a promising data-driven approach for yield prediction at county and regional scales that can overcome these traditional limitations.
+Historical averages fail to account for variations in annual and bi-annual yields driven by climate extremes, technological advances, and economic conditions.
+Traditional models have great limitations in capturing patterns driven by modern technologies and evolving patterns of agricultural practices.
+These limitations become even more critical with the increasing severity and unpredictability of climate change, resulting in more frequent extreme weather events, such as droughts, floods, and temperature anomalies, leading to significant deviations of production from historical averages that the traditional or expert-based method cannot forecast.
+Integrating satellite remote sensing data with economic and contextual agricultural data through advanced machine learning methods can overcome these limitations and establish a data-driven approach to county-level and regional yield prediction.
 
-Satellite remote sensing has revolutionized agricultural monitoring by providing spatially comprehensive, temporally consistent, and cost-effective observations of land surface conditions.
-The Global Land Data Assimilation System (GLDAS), developed by NASA and partner agencies, synthesizes satellite and ground-based observations to produce high-quality land surface variables including soil moisture, temperature, evapotranspiration, and precipitation at regional to global scales.
-Similarly, the Parameter-elevation Regressions on Independent Slopes Model (PRISM) provides high-resolution gridded climate data that captures topographic influences on precipitation and temperature patterns.
-These satellite-derived environmental variables capture critical factors influencing crop growth including water availability, thermal stress, and growing season conditions that traditional methods cannot comprehensively assess.
+Satellite remote sensing provided a breakthrough with the perception of agricultural productivity by providing a global, consistent, and affordable view of land surface conditions.
+The Global Land Data Assimilation System is a product developed by NASA in collaboration with other agencies to combine satellite and in situ observations and create high-quality consistent land surface variables, such as soil moisture, soil temperature, evapotranspiration, and precipitation that cover regional to global scales.
+Similarly, the PRISM provides the map of high-resolution grid climate variables that consider topographic factors influencing precipitation and temperature patterns.
+Water, thermal stress, and temperature for the growing season derived from satellite data are the coverage of the critical factors affecting crop-yield performance that the conventional method cannot interpret consistently.
 
 However, agricultural yield is not determined solely by environmental conditions.
 Economic factors including fuel costs, commodity prices, government support programs, and market access significantly influence planting decisions, input intensity, and ultimately production levels.
@@ -123,14 +126,29 @@ Transportation infrastructure, particularly proximity to processing facilities s
 Furthermore, technological advances, changing agricultural practices, and policy shifts create temporal trends that historical averages cannot capture.
 A comprehensive yield prediction framework must therefore integrate multiple heterogeneous data sources beyond satellite-derived environmental variables to account for the multi-faceted nature of agricultural production.
 
-This research extends previous work by developing a comprehensive benchmark framework that systematically integrates five primary data sources: (1) GLDAS satellite-derived environmental variables, (2) USDA corn harvest and planted acres data, (3) economic indicators from USDA Economic Research Service, (4) diesel fuel prices as proxies for operational costs, and (5) PRISM precipitation and temperature data.
+Minnesotan corn production differs across counties, due to many factors and influences, such as the economy, transportation logistics, and the environment.
+Satellite derived features such as vegetation indices and temperature patterns can provide valuable insights into crop health and potential yield; however, they cannot capture the local economic and infrastructure differences that also affect production.
+Each county's capacity to produce corn is influenced by multiple, often interrelated variables, including the local economy, which determines farmers' ability to invest in inputs and technologies, and market demand, which dictates the extent to which corn cultivation is prioritized.
+Equally important are the county's connections to the 5 key supply chains that sustain corn movement: storage facilities, feed mills (livestock feed), ethanol plants (fuel), processing centers (for direct human consumption), and export terminals (exporting to other states and/or countries).
+Limited access to efficient supply chains is likely to discourage large-scale production, as farmers without reliable distribution networks are less inclined to increase their outputs.
+
+Given that satellite data primarily contain bio-physical, climate and environmental factors, this makes it challenging to predict corn yields solely from satellite data, as it does not consider other important factors such as the economy, demand, and supply chain, to name a few.
+Interestingly, the analysis showed that county-level factors are closely linked to corn production, rather than individual environmental factors.
+This suggests that the geographic setting, including both human and structural aspects strongly influences how much corn is produced.
+
+The production of corn depends on biological and ecological elements which include pest migration patterns and pesticide application practices.
+The changing patterns of these factors throughout different time periods and geographical areas create challenges for satellite-based crop health and production monitoring.
+The application of pesticides helps protect crops from pests, but it alters their satellite-visible growth patterns.
+Future models are likely to achieve better prediction accuracy when they incorporate these additional factors which affect corn production across Minnesota's different counties and geographical areas.
+
+This research extends previous work by developing a comprehensive benchmark framework that systematically integrates five primary data sources: (1) GLDAS satellite derived environmental variables, (2) USDA corn harvest and planted acres data, (3) economic indicators from USDA Economic Research Service, (4) diesel fuel prices as proxies for operational costs, and (5) PRISM precipitation and temperature data.
 The study focuses specifically on Minnesota counties (FIPS codes 27001-27171) over the period 2000-2022, providing a rich temporal and spatial dataset encompassing \num{87} counties over \num{23} years.
 By systematically comparing eight machine learning algorithms across different complexity levels, this study identifies optimal modeling approaches for multi-source agricultural yield prediction and provides actionable insights for feature importance and data collection priorities.
 
 The primary research objectives are threefold: (1) develop a comprehensive benchmark framework comparing multiple machine learning algorithms (Polynomial Regression, SVM, Random Forest, XGBoost, LightGBM, TabNet, LSTM, and TCN) for agricultural yield prediction, (2) identify optimal modeling approaches that balance performance, complexity, and interpretability for practical deployment, and (3) analyze feature importance to understand which variables drive predictions and provide guidance for data collection priorities and model deployment strategies.
 The benchmark framework employs rigorous methodology including temporal train-test splitting to prevent data leakage, comprehensive feature engineering creating \num{66} informative features, multi-strategy imputation for handling missing data in heterogeneous sources, and robust scaling to handle outliers and distributional differences.
 
-This study contributes to the agricultural yield prediction literature by demonstrating that gradient boosting methods, particularly LightGBM, achieve superior performance (R² = \num{0.9930}) compared to traditional ensemble methods and deep learning architectures for multi-source tabular regression tasks.
+This study contributes to the agricultural yield prediction literature by demonstrating that gradient boosting methods, particularly LightGBM, achieve superior performance (R² = \num{0.993}) compared to traditional ensemble methods and deep learning architectures for multi-source tabular regression tasks.
 The feature importance analysis reveals critical insights about feature redundancy and compensatory mechanisms, demonstrating that models can maintain strong predictive performance even when primary features are unavailable, through alternative predictive pathways leveraging economic and environmental proxies.
 These findings have practical implications for supply chain planning, risk mitigation, and resource optimization in agricultural systems, where accurate yield forecasting enables proactive decision-making and enhanced resilience to climate and economic variability.
 
@@ -285,6 +303,13 @@ PRISM Climate Group, Oregon State University provides 4km resolution gridded cli
 PRISM data captures topographic influences on precipitation and temperature patterns through parameter-elevation regression modeling, providing higher spatial resolution than GLDAS for climate variables.
 Monthly data aggregated to county-level using FIPS code matching, with date column parsed from 'YYYY-MM' format, and multiple matching strategies employed (exact match, partial match, reverse matching with string cleaning) to handle naming inconsistencies.
 
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/EDA_feature_distributions.png}
+\caption{Distribution Analysis for Top 12 Features: Histograms showing feature distributions with mean and median lines. Features selected by correlation with target variable or variance.}
+\label{fig:feature_distributions}
+\end{figure}
+
 \subsection{Dataset Characteristics}
 
 \textbf{Temporal Coverage:} 2000-2022 (23 years)
@@ -297,6 +322,13 @@ Monthly data aggregated to county-level using FIPS code matching, with date colu
 
 \textbf{Target Variable Range:} \num{5900} to \num{56800000} bushels per county-year
 
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/EDA_target_distribution.png}
+\caption{Target Variable Distribution Analysis: (a) Histogram of corn production showing right skew, (b) Box plot revealing outliers, (c) Log-transformed distribution showing normalization, (d) Q-Q plot confirming approximate normality after log transformation.}
+\label{fig:target_distribution}
+\end{figure}
+
 The dataset exhibits substantial heterogeneity across counties, with production ranging over three orders of magnitude from small agricultural counties to major corn-producing regions.
 This heterogeneity requires robust modeling approaches capable of handling wide value ranges, addressed through log transformation of the target variable and robust scaling of features.
 
@@ -304,116 +336,163 @@ This heterogeneity requires robust modeling approaches capable of handling wide 
 
 \subsection{Exploratory Data Analysis}
 
-Comprehensive exploratory data analysis (EDA) was conducted to understand data characteristics, identify preprocessing requirements, and guide modeling decisions.
-The analysis encompasses target variable distribution, temporal patterns, correlation analysis, principal component analysis (PCA), K-nearest neighbors (KNN) analysis, feature distributions, missing value patterns, and outlier detection.
+Full exploratory data analysis (EDA) was conducted to understand data characteristics and used to identify key preprocessing and modeling decisions.
+The analysis includes target variable distribution, temporal patterns, correlation analysis, principal component analysis (PCA), K-nearest neighbors (KNN) analysis, feature distributions, missing value patterns, and outlier detection.
 
 \subsubsection{Target Variable Distribution}
 
-The target variable (\texttt{corn\_production\_bu}) exhibits a highly right-skewed distribution with mean \(\approx\)\num{16100000} bushels, median \(\approx\)\num{12500000} bushels, standard deviation \(\approx\)\num{12300000} bushels, and range from \num{5900} to \num{56800000} bushels.
-The strong right skew (median < mean) and high positive kurtosis indicate heavy tails with numerous high-production outliers representing major corn-producing counties.
-Log transformation (\texttt{log1p}) normalizes the distribution effectively, as confirmed by Q-Q plots showing approximate normality after transformation.
-This transformation prevents large counties from dominating the loss function during training and improves model performance across the full production range.
+The target variable (\texttt{corn\_production\_bu}) has a highly right-skewed distribution with mean \(\approx\)\num{16100000} bushels, median \(\approx\)\num{12500000} bushels, standard deviation \(\approx\)\num{12300000} bushels, and range from \num{5900} to \num{56800000} bushels.
+The strong right skew (median < mean) and high positive kurtosis indicate strong tails with numerous high-production outliers representing major corn producing counties like those in southern Minnesota.
+Log transformation (\texttt{log1p}) normalizes the distribution effectively, confirmed by Q-Q plots showing approximate normality after transformation.
+This transformation prevents large counties from dominating lower production counties (Northern Counties) during training and improves model performance across the full production range.
 
 \subsubsection{Temporal Analysis}
 
-Temporal analysis reveals important patterns across the 23-year study period.
-The training period (2000-2019) shows a general increasing trend with average annual growth rate of 2.84\%, while the test period (2020-2022) exhibits slight decline (-0.86\% annually).
-Peak production occurred in 2016-2018, and production variance increases over time from \(\sim\)\num{8000000} bushels (early 2000s) to \(\sim\)\num{15000000} bushels (recent years), indicating growing variability across counties.
-Peak variance in 2012 (drought year) demonstrates extreme weather impact, and increasing variance suggests growing disparity between high and low production counties.
-The number of producing counties remains relatively stable (85-87 counties annually), and total state production shows strong upward trend from 2000-2019.
+Temporal analysis reveals important patterns across the study period (2000-2023).
+The training time frame (2000-2019) showed a general increasing trend with average annual growth rate of 2.84\%, while in the test period of (2020-2022) it showed a slight decline (-0.86\% annually).
+Peak production occurred in 2016-2018, and production variance increases over time from \(\sim\)\num{8000000} bushels (early 2000s) to \(\sim\)\num{15000000} bushels in recent years, indicating growing variability across counties.
+Peak variance in 2012, a drought year demonstrates extreme weather impact, and increasing variance suggests growing disparity between high and low production counties.
+The number of producing counties remains relatively stable, limited mostly to southern counties where soil conditions are excellent, and total state production shows strong upward trend from 2000-2019.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/EDA_temporal_analysis.png}
+\caption{Temporal Analysis of Corn Production: (a) Mean production over time with standard deviation bands, (b) Production variance showing increasing variability, (c) Number of observations per year, (d) Total state production over time.}
+\label{fig:temporal_analysis}
+\end{figure}
 
 \subsubsection{Correlation Analysis}
 
-Correlation analysis reveals relationships between features and corn production.
-Top positively correlated features include \texttt{corn\_acres\_planted} (\(r \approx 0.95+\)), \texttt{ESoil\_tavg} (\(r = 0.782\)), \texttt{SoilMoi100\_200cm\_inst} (\(r = 0.601\)), \texttt{LWdown\_f\_tavg} (\(r = 0.511\)), \texttt{SoilTMP100\_200cm\_inst} (\(r = 0.454\)), \texttt{Tair\_f\_inst} (\(r = 0.448\)), and \texttt{yield\_per\_acre} (\(r \approx 0.4-0.5\)).
-Top negatively correlated features include \texttt{Albedo\_inst} (\(r = -0.262\)), \texttt{SnowDepth\_inst} (\(r = -0.246\)), \texttt{Qs\_acc} (\(r = -0.219\)), and \texttt{SWE\_inst} (\(r = -0.215\)).
+Correlation analysis reveals relationships between multiple features and corn production.
+Top positively correlated features include \texttt{corn\_acres\_planted} (\(r \approx 0.95+\)) as expected, \texttt{ESoil\_tavg} (\(r = 0.782\)), \texttt{SoilMoi100\_200cm\_inst} (\(r = 0.601\)), \texttt{LWdown\_f\_tavg} (\(r = 0.511\)), \texttt{SoilTMP100\_200cm\_inst} (\(r = 0.454\)), \texttt{Tair\_f\_inst} (\(r = 0.448\)), and \texttt{yield\_per\_acre} (\(r \approx 0.4-0.5\)).
+Top negatively correlated features include \texttt{Albedo\_inst} (\(r = -0.262\)), \texttt{SnowDepth\_inst} (\(r = -0.246\)), \texttt{Qs\_acc} (\(r = -0.219\)), and \texttt{SWE\_inst} (\(r = -0.215\)) where these features indicated snow coverage during winter seasons.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/EDA_correlation_target.png}
+\caption{Feature Correlation with Target Variable: (a) Top 15 positive correlations, (b) Top 15 negative correlations with corn production.}
+\label{fig:correlation_target}
+\end{figure}
+
 Inter-feature correlations reveal temperature clusters (high correlations \(r > 0.8\) among air, surface, and soil temperatures), soil moisture clusters (moderate correlations \(r = 0.4-0.7\) among different depths), and economic feature clusters.
 Temperature features require PCA to reduce dimensionality and multicollinearity.
 
-\subsubsection{Principal Component Analysis}
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/EDA_correlation_heatmap.png}
+\caption{Correlation Heatmap for Top 20 Features: Color intensity represents correlation strength, with red indicating positive and blue indicating negative correlations.}
+\label{fig:correlation_heatmap}
+\end{figure}
+
+\subsubsection{Principal Component Analysis (PCA)}
 
 PCA analysis on all numeric features reveals dimensionality reduction opportunities.
-The first component (PC1) explains \(\sim\)25-35\% of total variance, the second component (PC2) explains \(\sim\)8-12\%, approximately 15-20 components required for 90\% variance, and approximately 25-30 components required for 95\% variance.
-PC1 primarily captures scale-related information (production magnitude) dominated by agricultural context (\texttt{corn\_acres\_planted}, \texttt{yield\_per\_acre}) and economic features.
-PC2 captures environmental condition gradients dominated by environmental variables (soil moisture, temperature, precipitation).
-Temperature-specific PCA reduces multiple temperature measurements to 2 principal components explaining 85-90\% of temperature feature variance.
+The first component (PC1) explains \(\sim\)30\% of total variance, the second component (PC2) explains \(\sim\)10\%, approximately 15-20 components required for 90\% variance, and approximately 25-30 components required for 95\% variance.
+PC1 primarily captures scalar information like production amount, dominated by agricultural context (\texttt{corn\_acres\_planted}, \texttt{yield\_per\_acre}) and economic features.
+PC2 captures environmental condition changes dominated by environmental variables (soil moisture, temperature, precipitation).
+Temperature-specific PCA reduces multiple temperature measurements to 2 principal components explaining \(\sim\)87.5\% of temperature variance.
 
 \subsubsection{Missing Value and Outlier Analysis}
 
-Missing value analysis reveals economy data has extensive missing values (20-50\%) due to inconsistent reporting years, corn acres planted has \(\sim\)16\% missing primarily in early years and smaller counties, environmental data (GLDAS) shows minimal missing values (<5\%) after temporal aggregation, and PRISM data shows complete coverage after county matching.
-Outlier detection using 3×Interquartile Range (IQR) method identifies outliers in production data (high-production years for major counties), economic indicators (exceptional government payments in disaster relief years), environmental variables (extreme weather events), and engineered features (extreme economic conditions).
-Most outliers represent legitimate extreme events containing valuable information for model training.
+Missing value analysis reveals economy data has extensive missing values (20-50\%) due to inconsistent reporting over years, this is closely tied to census with the nature of reporting captured manually.
+Corn acres planted have \num{16}\% missing primarily in early years and smaller counties.
+Environmental data (GLDAS) shows minimal missing values \(\sim\)\num{5}\% after temporal aggregation, and PRISM data shows complete coverage after county matching.
+Outlier detection using 3×Interquartile Range (IQR) identified outliers in production data (high production years for major counties), economic indicators (exceptional government payments in disaster relief years or during economic stimulus), environmental variables during extreme weather seasons, and engineered features like extreme economic conditions.
+Most outliers represent legitimate events containing valuable information for model training.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/EDA_outlier_detection.png}
+\caption{Outlier Detection Analysis: Box plots for top 6 features with outliers, showing upper and lower bounds (3×IQR) as dashed red lines.}
+\label{fig:outlier_detection}
+\end{figure}
+
 RobustScaler, which uses median and IQR-based scaling, inherently handles outliers while preserving their information content.
 
 \subsection{Data Cleaning and Preprocessing}
 
 \subsubsection{Data Consolidation Process}
 
-The consolidation process merges five data sources using a systematic strategy beginning with GLDAS corn data as the foundation dataset.
-All additional data sources merge using left joins on FIPS codes and year/month identifiers to preserve all base observations.
-For PRISM data, multiple matching strategies employ exact match on FIPS codes, partial string matching with county names, and reverse matching with string cleaning to handle naming inconsistencies.
+The data consolidation process combines five data sources using a systematic strategy starting with GLDAS corn data as the base dataset.
+All additional data sources merge using left joins on FIPS county codes and year/month.
+For PRISM data, we apply the same matching strategy, exact match on FIPS codes.
 Temporal alignment matches monthly data (diesel prices, PRISM precipitation) with yearly aggregations (corn production, economy indicators) based on year and month fields.
 
 \subsubsection{Missing Value Imputation}
 
-A multi-strategy imputation approach implements strategy selection based on missing data percentage.
-For features with less than 20\% missing values, a three-step cascade applies: forward fill (\texttt{ffill}) to propagate the last known value forward, backward fill (\texttt{bfill}) to propagate the next known value backward, and median imputation as final fallback.
-For features with 20-50\% missing values, direct median imputation applies, primarily used for economic indicators with moderate missingness.
-Features with more than 50\% missing values drop from the feature set to prevent imputation bias from excessive missingness.
-
-For economic indicators with extensive gaps, a six-strategy cascade implements in sequential order: (1) forward fill temporally within each county, (2) backward fill temporally within each county, (3) linear interpolation between known points, (4) county-specific median imputation providing spatial context, (5) year-specific median imputation providing temporal context, and (6) overall median as ultimate fallback.
-This approach preserves both spatial (county-level) and temporal patterns while ensuring complete data coverage.
+A multi-step imputation approach implements strategy selection based on missing data percentage.
+For features with less than 20\% missing values, a three-step strategy applies: forward fill to propagate the last known value forward, backward fill to propagate the next known value backward, and median as final fallback.
+For features with 20-50\% missing values, direct median imputation, primarily used for economic indicators with moderate missing values.
+Features with more than 50\% missing values were dropped from the feature set to prevent imputation bias.
+For economic indicators with extensive gaps, a six strategy method implements in order: (1) forward fill temporally within each county, (2) backward fill temporally within each county, (3) linear interpolation between known points, (4) county-specific median imputation providing spatial context, (5) year-specific median imputation providing temporal context, and (6) overall median as final fallback.
+This approach preserves both spatial county-level and temporal patterns while ensuring data coverage.
 
 \subsubsection{Data Filtering}
 
 Data filtering removes records with zero corn production and missing target values.
 A total of \num{283} records with zero corn production removed, representing non-corn-growing years or counties.
-Additionally, all records where the target variable (\texttt{corn\_production\_bu}) is missing removed, resulting in a final dataset of \num{12026} observations with complete target values.
+Additionally, all records where the target variable corn production is missing are removed, resulting in a final dataset of \num{12000} observations with complete target values.
 
 \subsubsection{Feature Scaling}
 
-All numeric features scaled using RobustScaler from scikit-learn, which uses median and interquartile range (IQR) instead of mean and standard deviation, making it inherently robust to outliers.
-The scaling formula is \(X_{\text{scaled}} = \frac{X - \text{median}(X)}{\text{IQR}(X)}\).
+All numeric features scaled using RobustScaler from scikit-learn, which uses median and interquartile range (IQR) instead of mean and standard deviation, making it robust to outliers.
+The scaling formula is:
+\[
+X_{\text{scaled}} = \frac{X - \text{median}(X)}{\text{IQR}(X)}
+\]
 The scaler fitted exclusively on training data (years 2000-2019) and then applied to both training and test sets using the fitted scaler to prevent data leakage.
 
 \subsubsection{Feature Engineering}
 
 Comprehensive feature engineering created \num{66} informative features across multiple categories.
-Temporal features include \texttt{year\_trend} (linear temporal trend \(year - 2000\) capturing long-term productivity improvements) and cyclical month encoding (\texttt{month\_sin}, \texttt{month\_cos}) using sine/cosine transformation \(month_{sin} = \sin\left(\frac{2\pi \cdot month}{12}\right)\), \(month_{cos} = \cos\left(\frac{2\pi \cdot month}{12}\right)\).
+Temporal features include yearly trend (linear temporal trend \(year - 2000\) capturing long-term productivity improvements) and cyclical month encoding (month sin, month cos) using sine/cosine transformation:
+\[
+month_{sin} = \sin\left(\frac{2\pi \cdot month}{12}\right)
+\]
+\[
+month_{cos} = \cos\left(\frac{2\pi \cdot month}{12}\right)
+\]
 Soil moisture features include \texttt{soil\_moisture\_avg} (average across all depths) and \texttt{soil\_moisture\_gradient} (difference between deep and shallow soil moisture).
 Temperature features include \texttt{temperature\_avg} (average across all measurements), \texttt{temperature\_range} (difference between maximum and minimum), and PCA components (2 principal components from temperature features).
-Water balance features include \texttt{precipitation\_evap\_balance} (precipitation minus evaporation for net water availability) and \texttt{precipitation\_efficiency} (soil moisture per unit precipitation with epsilon protection: \(efficiency = \frac{SoilMoi_{0-10cm}}{precipitation + \epsilon}\), \(\epsilon = 10^{-8}\)).
-Agricultural context features include \texttt{yield\_per\_acre} (corn production divided by acres planted with epsilon protection) and \texttt{fuel\_cost\_proxy} (diesel price as proxy for operational costs).
-Economic interaction features include \texttt{total\_revenue\_sources} (sum of farm-related income and government receipts) and \texttt{revenue\_per\_bushel} (total revenue divided by production with epsilon protection).
-Spatial features include \texttt{ethanol\_dist\_category} (categorical encoding of distance to ethanol plants, one-hot encoded into Very Close, Close, Medium, Far, Very Far).
+Water balance features include \texttt{precipitation\_evap\_balance} (precipitation minus evaporation for net water availability) and \texttt{precipitation\_efficiency} (soil moisture per unit precipitation with epsilon protection):
+\[
+efficiency = \frac{SoilMoi_{0-10cm}}{precipitation + \epsilon}, \quad \epsilon = 10^{-8}
+\]
+Agricultural context features include yield per acre (corn production divided by acres planted with epsilon protection) and fuel cost proxy (diesel price as close proxy for operational costs).
+Economic interaction features include total revenue sources (sum of farm-related income and government receipts) and revenue per bushel (total revenue divided by production with epsilon protection).
+Spatial features include ethanol refinement distance category (categorical encoding of distance to ethanol plants, one-hot encoded into Very Close, Close, Medium, Far, Very Far).
 
 \subsubsection{Data Splitting}
 
-A temporal train-test split performed to prevent data leakage, with the training set encompassing years 2000-2019 (\num{10409} samples) and the test set covering years 2020-2022 (\num{1617} samples), resulting in an approximate split ratio of 86.5\% training and 13.5\% test data.
-This temporal separation ensures no temporal overlap between training and test sets.
-Following this split, all preprocessing steps requiring fitting (scaling, encoding) performed exclusively on the training data.
+A temporal train-test split was performed to prevent data leakage, with the training set encompassing years 2000-2019 (\num{10400} samples) and the test set covering years 2020-2022 (\num{1620} samples), resulting in an approx. split ratio of 86.5\% training and 13.5\% test data.
+This temporal separation ensures no year overlap between training and test sets.
+Following this split, all preprocessing steps requiring fitting (scaling, encoding) performed only on the training data.
 Transformers fitted exclusively on training data, and test data transformed using these fitted transformers to ensure no information leakage from future data to past predictions.
 
 \subsection{Model Selection Rationale}
 
-Eight machine learning algorithms selected to provide comprehensive comparison across different complexity levels.
+Eight machine learning algorithms were selected to provide comparison across different model complexity levels.
 Low complexity models include Polynomial Regression, Support Vector Machine (SVM), and Random Forest, which provide baseline performance with relatively simple architectures.
-Medium complexity models encompass XGBoost and LightGBM, representing state-of-the-art gradient boosting methods optimized for tabular data.
+Medium complexity models include XGBoost and LightGBM, representing state-of-the-art gradient boosting methods optimized for tabular data.
 High complexity models include TabNet, Temporal Neural Network (LSTM), and Temporal Convolutional Network (TCN), which leverage deep learning architectures with attention mechanisms and sequential processing capabilities.
 
 \subsection{Model Specifications}
 
 \subsubsection{Polynomial Regression}
 
-Polynomial Regression employs polynomial degree of 2 to generate quadratic features, with interaction-only mode enabled (\texttt{interaction\_only=True}) to capture only feature interactions rather than pure squared terms.
-The model utilizes Ridge regression with \(\alpha = 100.0\) for regularization, preventing overfitting and numerical instability.
-Hyperparameters include \texttt{degree}=2, \texttt{include\_bias}=False, \texttt{interaction\_only}=True, and \texttt{Ridge alpha}=100.0.
+Low order Polynomial Regression employs polynomial degree of 2 to generate quadratic features, with interaction-only mode enabled (interaction only=True) to capture only feature interactions rather than pure squared terms.
+The model utilizes Ridge regression with:
+\[
+\alpha = 100.0
+\]
+for regularization, preventing overfitting and numerical instability.
+Hyperparameters include degree=2, include bias=False, interaction only=True, and Ridge alpha=100.0.
 
 \subsubsection{Support Vector Machine}
 
-The Support Vector Machine utilizes a Radial Basis Function (RBF) kernel with epsilon-SVR algorithm for regression.
+Support Vector Machine utilizes a Radial Basis Function (RBF) kernel with epsilon for regression.
 Due to computational limitations, the model trains on a subset of \num{5000} samples, as SVM scales poorly with large datasets.
-Hyperparameters include \texttt{kernel}='rbf', \texttt{C}=100, \texttt{epsilon}=0.1, \texttt{gamma}='scale', and \texttt{max\_iter}=\num{10000}.
+Hyperparameters include kernel='rbf', C=100, epsilon=0.1, gamma='scale', and max iter=10,000.
 
 \subsubsection{Random Forest}
 
@@ -421,49 +500,56 @@ Random Forest employs an ensemble of \num{200} decision trees with bootstrap agg
 
 \subsubsection{XGBoost}
 
-XGBoost utilizes a gradient boosting framework with tree learners, employing sequential tree building with gradient optimization and built-in L1 and L2 regularization \cite{chen2016xgboost}.
-Hyperparameters include \texttt{n\_estimators}=\num{300}, \texttt{max\_depth}=4, \texttt{learning\_rate}=0.08, \texttt{subsample}=0.85, \texttt{colsample\_bytree}=0.85, \texttt{min\_child\_weight}=3, \texttt{gamma}=0.1, \texttt{reg\_alpha}=0.05, and \texttt{reg\_lambda}=1.5.
-Training employs early stopping on the validation set when supported by the API.
+XGBoost utilizes gradient boosting with tree learners, employing sequential tree building with gradient optimization and built-in L1 and L2 regularization \cite{chen2016xgboost}.
+Hyperparameters include n estimators=300, max depth=4, learning rate=0.08, subsample=0.85, colsample bytree=0.85, min child weight=3, gamma=0.1, reg alpha=0.05, and reg lambda=1.5.
+Training includes early stopping on the validation.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/xgboost_finetuning_analysis.png}
+\caption{XGBoost Fine-Tuning Analysis: Hyperparameter optimization results showing learning curves, parameter sensitivity analysis, or performance metrics across different hyperparameter configurations.}
+\label{fig:xgboost_finetuning}
+\end{figure}
 
 \subsubsection{LightGBM}
 
 LightGBM employs gradient boosting with leaf-wise tree growth, optimized for speed and memory efficiency through a histogram-based algorithm \cite{ke2017lightgbm}.
-Hyperparameters include \texttt{n\_estimators}=\num{400}, \texttt{max\_depth}=5, \texttt{learning\_rate}=0.06, \texttt{num\_leaves}=31, \texttt{subsample}=0.85, \texttt{colsample\_bytree}=0.85, \texttt{min\_child\_samples}=20, \texttt{reg\_alpha}=0.05, and \texttt{reg\_lambda}=1.5.
-Training employs early stopping with patience=\num{50} rounds, with the best iteration typically occurring at \num{397} out of \num{400} estimators.
+Hyperparameters include n estimators=400, max depth=5, learning rate=0.06, num leaves=31, subsample=0.85, colsample bytree=0.85, min child samples=20, reg alpha=0.05, and reg lambda=1.5.
+Training employs early stopping with patience=50 rounds, with the best iteration typically occurring at \num{397} out of \num{400} estimators.
 
 \subsubsection{TabNet}
 
-TabNet employs a deep learning architecture specifically designed for tabular data, utilizing an attention mechanism for feature selection \cite{arik2021tabnet}.
-Hyperparameters include \texttt{n\_d}=32, \texttt{n\_a}=32, \texttt{n\_steps}=6, \texttt{gamma}=1.3, \texttt{n\_independent}=2, \texttt{n\_shared}=2, \texttt{lambda\_sparse}=1e-3, \texttt{optimizer}=Adam with learning rate 1.5e-2, \texttt{scheduler}=StepLR with step\_size=15 and gamma=0.85, and \texttt{mask\_type}='entmax'.
-Training configuration employs \texttt{max\_epochs}=\num{150}, \texttt{patience}=\num{25}, \texttt{batch\_size}=\num{512}, \texttt{virtual\_batch\_size}=\num{128}, and \texttt{compute\_importance}=False (disabled to avoid dtype issues).
+TabNet employs deep learning architecture specifically designed for tabular data, utilizing an attention mechanism for feature selection \cite{arik2021tabnet}.
+Hyperparameters include n d=32, n a=32, n steps=6, gamma=1.3, n independent=2, n shared=2, lambda sparse=1e-3, optimizer=Adam with learning rate 1.5e-2, scheduler=StepLR with step size=15 and gamma=0.85, and mask type='entmax'.
+Training configuration employs max epochs=150, patience=25, batch size=512, virtual batch size=128, and compute importance=False, disabled to avoid data type issues.
 
 \subsubsection{Temporal Neural Network (LSTM)}
 
 The Temporal Neural Network employs a sequential model with LSTM layers designed for sequential and temporal pattern recognition.
-The layer structure consists of input shape (1, 62 features), first LSTM layer with \num{128} units and dropout 0.3, batch normalization, second LSTM layer with \num{64} units and dropout 0.3, dense layer with \num{32} units, and output layer with 1 unit.
-The model utilizes Adam optimizer with learning\_rate=0.001, Mean Squared Error (MSE) as loss function, and Mean Absolute Error (MAE) as evaluation metric.
-Training configuration includes \num{100} epochs, batch\_size=\num{256}, with callbacks including EarlyStopping with patience=\num{15} and ReduceLROnPlateau with patience=\num{5} and factor=0.5.
+The layer structure consists of input shape (1, 62 features), first LSTM layer with \num{128} units and dropout 0.3, batch normalization, second LSTM layer with 64 units and dropout 0.3, dense layer with 32 units, and output layer with 1 unit.
+The model utilizes Adam optimizer with learning rate=0.001, Mean Squared Error (MSE) as loss function and Mean Absolute Error (MAE) as evaluation metric.
+Training configuration includes \num{100} epochs, batch size=256, with callbacks including EarlyStopping with patience=15 and ReduceLROnPlateau with patience=5.00 and factor=0.5.
 
 \subsubsection{Temporal Convolutional Network (TCN)}
 
-The Temporal Convolutional Network employs a flattened input approach for tabular data, utilizing dense layers with L2 regularization and progressive capacity reduction from \num{512} to \num{256} to \num{128} to \num{64} to 1 unit \cite{bai2018tcn}.
-The layer structure begins with input layer flattening (1, num\_features), followed by four dense blocks: first with \num{512} units and L2 reg=0.001 and Dropout=0.4, second with \num{256} units and L2 reg=0.001 and Dropout=0.4, third with \num{128} units and L2 reg=0.001 and Dropout=0.3, and fourth with \num{64} units and L2 reg=0.001 and Dropout=0.2.
+The Temporal Convolutional Network employs a flattened input approach for tabular data, utilizing dense layers with L2 regularization and progressive capacity reduction from \num{512} to \num{256} to \num{128} to 64 to 1 unit \cite{bai2018tcn}.
+The layer structure begins with input layer flattening (1, num features), followed by four dense blocks: first with \num{512} units and L2 reg=0.001 and Dropout=0.4, second with \num{256} units and L2 reg=0.001 and Dropout=0.4, third with \num{128} units and L2 reg=0.001 and Dropout=0.3, and fourth with 64 units and L2 reg=0.001 and Dropout=0.2.
 Each dense block followed by batch normalization, with final output layer containing 1 unit.
-The model uses Adam optimizer with learning\_rate=0.0005, MSE as loss function, and MAE as evaluation metric.
-Training configuration includes \num{150} epochs, batch\_size=\num{256}, and callbacks with EarlyStopping (patience=\num{20}, min\_delta=0.0001) and ReduceLROnPlateau (patience=\num{7}, factor=0.5).
+The model uses Adam optimizer with learning rate=0.0005, MSE as loss function, and MAE as evaluation metric.
+Training configuration includes \num{150} epochs, batch size=256, and callbacks with EarlyStopping (patience=20, min delta=0.0001) and ReduceLROnPlateau (patience=7.00, factor=0.5).
 
 \subsection{Evaluation Metrics}
 
-Model performance evaluated on the test set (years 2020-2022) using metrics computed on the original scale (after inverse log transformation).
+Model performance was evaluated on the test set (years 2020-2022) using metrics computed on the original scale (after inverse log transformation).
 Metrics include R² score (coefficient of determination measuring proportion of variance explained), root mean squared error (RMSE) in bushels, mean absolute error (MAE) in bushels, and mean absolute percentage error (MAPE) as percentage.
-Two experimental configurations tested: (1) Full feature set including \texttt{corn\_acres\_planted} (66 features), and (2) Excluding \texttt{corn\_acres\_planted} to assess the contribution of other features (65 features).
+Two experimental configurations tested: (1) Full feature set including corn acres planted (66 features), and (2) Excluding corn acres planted to assess the contribution of other features (65 features).
 
 \section{Results}
 
 \subsection{Overall Performance Comparison}
 
-Model performance evaluated on the test set (years 2020-2022) using metrics computed on the original scale.
-Two experimental configurations tested: (1) Full feature set including \texttt{corn\_acres\_planted} (66 features), and (2) Excluding \texttt{corn\_acres\_planted} to assess the contribution of other features (65 features).
+The model's performances were evaluated on the test set (years 2020-2022) using metrics computed on the original scale.
+Two experimental configurations tested: (1) Full feature set including corn acres planted (66 features), and (2) Excluding corn acres planted to assess the contribution of other features (65 features).
 Results presented in \reftab{tab:performance} and \reftab{tab:performance_noacres}.
 
 \begin{table}[htb]
@@ -508,86 +594,131 @@ TCN & -0.4523 & 22,456,789 & 14,892,456 & 81.23 \\
 \end{tabular}}
 \end{table}
 
-Key observations from the performance comparison reveal that excluding \texttt{corn\_acres\_planted} results in performance degradation with R² decrease of 1.5\% (LightGBM: \num{0.9930} → \num{0.9780}) and RMSE increase of 89.5\% (\num{1137001} → \num{2154832} bushels).
-However, relative model rankings preserved, with gradient boosting methods (LightGBM and XGBoost) remaining superior across both configurations.
-Models demonstrate robust performance, maintaining strong predictive capability (R² > 0.97 for top models) even without the most important feature.
-This robustness stems from feature redundancy, where other features such as \texttt{fuel\_cost\_proxy}, \texttt{yield\_per\_acre}, and economic indicators compensate for the removed feature.
+Key observations from the performance comparison showed that excluding corn acres planted results in performance degradation with R² decrease of 1.5\% (LightGBM: \num{0.993} → \num{0.978}) and RMSE increase of 89.5\% (\num{1140000} → \num{2150000} bushels).
+However, relative model rankings preserved, with gradient boosting methods (LightGBM and XGBoost) remaining best across both configurations.
+Models demonstrate robust performance, maintaining strong predictive capability (R² \(\sim\) \num{0.97} for top models) even without the most important feature.
+This robustness stems from redundancy, where other features such as fuel cost proxy, yield per acre, and economic indicators compensate for the removed feature.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/Model comparison.png}
+\caption{Model Performance Comparison: Visual comparison of all models showing performance metrics (R², RMSE, MAE, MAPE) across the eight evaluated algorithms.}
+\label{fig:model_comparison}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/model_comparison_bar_plots.png}
+\caption{Model Comparison Bar Plots: Performance metrics (R², RMSE, MAE, MAPE) displayed as bar charts for each model, enabling direct comparison of algorithm performance.}
+\label{fig:model_bar_plots}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/model_comparison_scatter_plots.png}
+\caption{Model Comparison Scatter Plots: Predicted versus actual values for each model, showing prediction quality, error patterns, and demonstrating the superiority of LightGBM and XGBoost.}
+\label{fig:model_scatter_plots}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/model perfromance without planted acers.png}
+\caption{Model Performance Comparison Without \texttt{corn\_acres\_planted}: Performance metrics for all models when the primary feature is excluded, showing how model performance changes in the reduced feature set configuration.}
+\label{fig:model_performance_noacres}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/Scattor plot without planted acers.png}
+\caption{Predicted vs Actual Values Without \texttt{corn\_acres\_planted}: Scatter plot showing prediction quality for models trained without the most important feature, demonstrating compensatory mechanisms and alternative predictive pathways.}
+\label{fig:scatter_noacres}
+\end{figure}
 
 \subsection{Why LightGBM Performs Best}
 
-LightGBM achieved the highest R² score (\num{0.9930}) and lowest RMSE (\num{1137001} bushels), explaining 99.30\% of variance in corn production.
-Several factors contribute to superior performance including algorithmic advantages and dataset characteristics favoring LightGBM's architecture.
+LightGBM achieved the highest R² score (\num{0.993}) and lowest RMSE (\num{1140000} bushels), explaining 99.30\% of variance in corn production.
+Several factors contribute to superior performance including model algorithm advantages and dataset favoring LightGBM.
 
 \subsubsection{Algorithmic Advantages}
 
-LightGBM's superior performance stems from several algorithmic advantages.
+LightGBM's performance stems from several algorithmic advantages.
 First, leaf-wise (best-first) tree building, as opposed to level-wise growth, allows deeper trees while maintaining efficiency, enabling better capture of complex interactions between the 66 features.
-More efficient memory usage enables deeper trees (max\_depth=5 vs XGBoost's 4).
-Second, the histogram-based algorithm enables faster training through histogram approximation, allowing more estimators (\num{400} vs XGBoost's \num{300}) in similar time with better gradient approximation for continuous features.
-Third, an optimal regularization balance achieved through L1 regularization (reg\_alpha=0.05) for feature selection via sparsity, L2 regularization (reg\_lambda=1.5) for smoothing predictions, and dual regularization preventing overfitting while maintaining flexibility.
+More efficient memory usage enables deeper trees (max depth=5 vs XGBoost's 4).
+Second, the histogram-based algorithm enables faster training through histogram approximation, allowing more estimators (\num{400} vs XGBoost's \num{300}) with better gradient approximation for continuous features, given similar training time.
+Third, an optimal regularization balance achieved through L1 regularization (reg alpha=0.05) for feature selection, L2 regularization (reg lambda=1.5) for smoothing predictions, and dual regularization preventing overfitting while maintaining flexibility.
 Subsampling (0.85) provides additional regularization.
 Fourth, the lower learning rate (0.06) combined with more estimators (\num{400}) allows fine-grained optimization and better convergence to the optimal solution, with early stopping at iteration \num{397} preventing overfitting.
 
 \subsubsection{Dataset Characteristics Favoring LightGBM}
 
 Several dataset characteristics favor LightGBM's architecture.
-The tabular data structure with 66 engineered features of mixed types (continuous and encoded categoricals) aligns perfectly with LightGBM's strengths in tabular data with feature interactions, and the model efficiently handles sparse features such as one-hot encoded ethanol distance.
-Multiple engineered interaction features (precipitation × evaporation, temperature averages) naturally captured by LightGBM's tree structure, outperforming linear models (Polynomial, SVM) at non-linear interactions.
-The moderate dataset size of \num{10409} training samples ideal for gradient boosting—large enough for complex models but not too large for deep learning benefits—and the histogram algorithm provides speed advantage over XGBoost.
+The tabular data structure with 66 engineered features of mixed types of continuous and one hot encoded categorical feature aligns with LightGBM's strengths in tabular data with feature interactions, and the model efficiently handles sparse features such as one-hot encoded ethanol production facility distance.
+Multiple engineered interaction features like precipitation * evaporation naturally captured by LightGBM's tree structure, outperformed linear models (Polynomial, SVM) at non-linear interactions.
+The moderate dataset size of \num{10400} training samples ideal for gradient boosting, large enough for complex models but not too large for deep learning to benefit.
+Additionally, the histogram algorithm provides speed advantage over XGBoost.
 
 \subsection{Model-by-Model Analysis}
 
-XGBoost achieved R² = \num{0.9910} and RMSE = \num{1288613} bushels, demonstrating excellent performance second only to LightGBM.
-Its strengths include robust regularization preventing overfitting, proven track record on tabular data, and good feature importance interpretation.
-Weaknesses include slightly slower training than LightGBM, level-wise tree growth less efficient than leaf-wise growth, and marginally lower performance (0.9920\% lower R²).
+XGBoost achieved R² = \num{0.991} and RMSE = \num{1290000} bushels, demonstrating excellent performance second only to LightGBM.
+XGBoost strengths include robust regularization preventing overfitting, ideal for tabular data, and good feature importance and feature selection.
+However, weaknesses include slightly slower training than LightGBM, levelwise tree growth less efficient than leaf-wise growth, and slight lower performance (0.9920\% lower R²).
 
-TabNet achieved R² = \num{0.9599} and RMSE = \num{2719162} bushels.
+TabNet achieved R² = \num{0.960} and RMSE = \num{2720000} bushels.
 Its strengths include strong deep learning performance, attention mechanism providing interpretability, ability to capture complex non-linear patterns, and good generalization despite lower R².
-However, it underperforms gradient boosting by approximately 3.3\% R², requires more hyperparameter tuning, has longer training time, and feature importance computation disabled due to dtype issues.
-The dataset size (\num{10409} samples) may not fully leverage deep learning advantages, and tree-based methods excel at tabular data with engineered features.
+However, it underperforms gradient boosting models by approximately 3.3\% R², requires more hyperparameter tuning, has longer training time.
+The dataset size (\num{10400} samples) may not fully leverage deep learning advantages, and tree-based methods excel at tabular data with engineered features.
 
-Random Forest achieved R² = \num{0.9563} and RMSE = \num{2839874} bushels.
+Random Forest achieved R² = \num{0.956} and RMSE = \num{2840000} bushels.
 Its strengths include excellent interpretability through feature importance, robustness to outliers and missing values, good baseline performance, and fast training.
 However, it underperforms gradient boosting by approximately 3.7\% R², is less effective at capturing complex interactions, has independent trees that don't learn from previous errors, and exhibits higher RMSE than gradient boosting methods.
 The fundamental difference lies in bagging (Random Forest) versus boosting (LightGBM/XGBoost), where boosting sequentially corrects errors and improves with each iteration.
 
-Polynomial Regression achieved R² = \num{0.8840} and RMSE = \num{4626776} bushels.
+Polynomial Regression achieved R² = \num{0.884} and RMSE = \num{4630000} bushels.
 Its strengths include simplicity and interpretability, fast training, low computational cost, and ability to capture quadratic relationships.
 However, it is limited to polynomial relationships (degree 2), cannot capture complex non-linear patterns, has limited expressiveness even with interactions, and exhibits higher RMSE than tree-based methods.
 
-The Support Vector Machine achieved R² = \num{0.9104} and RMSE = \num{4067153} bushels.
+The Support Vector Machine achieved R² = \num{0.910} and RMSE = \num{4070000} bushels.
 Its strengths include good non-linear pattern capture with RBF kernel, effective regularization through C parameter, and robustness to outliers (epsilon-tube).
-However, computational limitations require subset training (\num{5000} samples), preventing leverage of the full training set (\num{10409} samples).
+However, computational limitations require subset training (\num{5000} samples), preventing leverage of the full training set (\num{10400} samples).
 
-The Temporal Neural Network (LSTM) achieved R² = \num{0.8602} and RMSE = \num{5079808} bushels.
-While designed for sequential/temporal patterns with ability to capture long-term dependencies, it underperforms compared to tree-based methods.
+The Temporal Neural Network (LSTM) achieved R² = \num{0.860} and RMSE = \num{5080000} bushels.
+While designed for sequential/temporal patterns with ability to capture longterm dependencies, it underperforms compared to treebased methods.
 The sequence length of 1 (each sample treated as single timestep) is not ideal for LSTM, and the architecture mismatch—LSTM designed for sequences but data treated as single timestep per sample—means there are no true temporal sequences.
 
-The Temporal Convolutional Network (TCN) achieved R² = -0.3718 and RMSE = \num{21092452} bushels.
+The Temporal Convolutional Network (TCN) achieved R² = -0.3718 and RMSE = \num{21100000} bushels.
 While the architecture improved from initial CNN implementation with L2 regularization and progressive capacity reduction, it still underperforms significantly.
 The negative R² indicates model predictions worse than simply predicting the mean, with numerical instability in some training runs.
 
 \subsection{Feature Importance Analysis}
 
-Feature importance analysis reveals critical insights about which variables drive corn production predictions.
-Two experimental configurations analyzed: (1) full feature set with \texttt{corn\_acres\_planted}, and (2) excluding \texttt{corn\_acres\_planted} to assess feature redundancy and compensatory mechanisms.
+Feature importance analysis reveals insights about which variables drive corn production predictions.
+Two experimental configurations analyzed: (1) full feature set with corn acres planted, and (2) excluding corn acres planted to assess feature redundancy and compensatory mechanisms.
 
-\subsubsection{Feature Importance with \texttt{corn\_acres\_planted}}
+\subsubsection{Feature Importance with corn acres planted}
 
 Across all tree-based models, consistent patterns emerged.
-Top features for LightGBM include \texttt{corn\_acres\_planted} (2,022 importance, 48.2\% in XGBoost), \texttt{yield\_per\_acre} (1,903), \texttt{revenue\_per\_bushel} (875), \texttt{fuel\_cost\_proxy} (512, 20.3\% in XGBoost), and \texttt{govt\_programs\_federal\_receipts\_usd} (504).
-Key observations: \texttt{corn\_acres\_planted} dominates with 48.2\% importance in XGBoost, agricultural context features (acres planted, yield per acre) most important, economic indicators rank highly (revenue, government receipts), environmental variables important but secondary to agricultural/economic context, and feature engineering successful (yield\_per\_acre, revenue\_per\_bushel created).
+Top features for LightGBM include corn acres planted (2,022 importance, 48.2\% in XGBoost), yield per acre (1,903), revenue per bushel (875), fuel cost proxy (512, 20.3\% in XGBoost), and govt programs federal receipts usd (504).
+Key observations: corn acres planted dominate with 48.2\% importance in XGBoost, agricultural context features (acres planted, yield per acre) most important, economic indicators rank highly (revenue, government receipts), environmental variables important but secondary to agricultural/economic context, and feature engineering successful (yield per acre, revenue per bushel created).
+This removed several external factors such as logistics and economics as with planted acres, there should be a direct correlation to harvest.
+This essentially predicts the yield.
 
-\subsubsection{Feature Importance without \texttt{corn\_acres\_planted}}
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/Feature Importance.png}
+\caption{Feature Importance Rankings: Relative importance of features for model predictions, showing top features ranked by importance scores from tree-based models (LightGBM, XGBoost, Random Forest).}
+\label{fig:feature_importance}
+\end{figure}
 
-When \texttt{corn\_acres\_planted} excluded, feature importance shifts dramatically, revealing compensatory mechanisms and alternative predictive pathways.
-Top features for LightGBM include \texttt{fuel\_cost\_proxy} (1,735 importance, 66.1\% in XGBoost, up from 20.3\%), \texttt{yield\_per\_acre} (1,566, increases from 4.3\% to 10.2\%), \texttt{revenue\_per\_bushel} (945), \texttt{diesel\_usd\_gal} (612), and \texttt{govt\_programs\_federal\_receipts\_usd} (572).
-XGBoost feature importance changes demonstrate significant shifts: \texttt{fuel\_cost\_proxy} increases from 20.3\% to 66.1\% (3.25× increase), \texttt{yield\_per\_acre} increases from 4.3\% to 10.2\% (2.37× increase), and \texttt{RootMoist\_inst} dramatically increases from 0.16\% to 3.7\% (23× increase), indicating environmental variables gain importance when agricultural context features removed.
+\subsubsection{Feature Importance without corn acres planted}
 
-\subsubsection{Why \texttt{fuel\_cost\_proxy} Becomes Most Important}
+When corn acres are planted excluded, feature importance shifts dramatically, revealing compensatory mechanisms and alternative predictive pathways.
+Top features for LightGBM include fuel cost proxy (1,735 importance, 66.1\% in XGBoost, up from 20.3\%), yield per acre (1,566, increases from 4.3\% to 10.2\%), revenue per bushel (945), diesel usd gal (612), and govt programs federal receipts usd (572).
+XGBoost feature importance changes demonstrate significant shifts: fuel cost proxy increases from 20.3\% to 66.1\% (3.25× increase), yield per acre increases from 4.3\% to 10.2\% (2.37× increase), and RootMoist inst dramatically increases from 0.16\% to 3.7\% (23× increase), indicating economic, yield and environmental proxies are sufficient in accurately predicting production.
 
-When \texttt{corn\_acres\_planted} removed, \texttt{fuel\_cost\_proxy} (defined as \texttt{diesel\_usd\_gal} × \texttt{corn\_acres\_planted}) paradoxically increases in importance despite theoretically losing the acres component.
-This counterintuitive result explained through several mechanisms: (1) compensatory information content where \texttt{fuel\_cost\_proxy} contains implicit scale information through interaction with diesel price, (2) economic signal amplification where it captures both operational scale and economic conditions, (3) temporal variation and predictivity where diesel price variations correlate with production changes, and (4) feature interaction strength where the pre-calculated engineered feature contains historical scale information through multiplicative structure.
+\subsubsection{Why fuel cost proxy Becomes Most Important}
+
+When corn acres planted removed, fuel cost proxy (defined as diesel usd gal × corn acres planted) paradoxically increases in importance despite theoretically losing the acres component.
+This counterintuitive result is explained through several mechanisms, (1) economic signal amplification where it captures both operational scale and economic conditions, (2) temporal variation and predictivity where diesel price variations correlate with production changes, and (3) feature interaction strength where the pre-calculated engineered feature contains historical scale information through multiplicative structure.
 
 \subsection{Key Findings}
 
@@ -614,34 +745,53 @@ This suggests that for this dataset size and structure, medium-complexity gradie
 
 \section{Discussion}
 
-\subsection{Implications for Agricultural Yield Prediction}
+Minnesotan corn production differs across counties, due to many factors and influences, such as the economy, transportation logistics, and the environment.
+Satellite derived features such as vegetation indices and temperature patterns can provide valuable insights into crop health and potential yield; however, they cannot capture the local economic and infrastructure differences that also affect production.
+Each county's capacity to produce corn is influenced by multiple, often interrelated variables, including the local economy, which determines farmers' ability to invest in inputs and technologies, and market demand, which dictates the extent to which corn cultivation is prioritized.
+Equally important are the county's connections to the 5 key supply chains that sustain corn movement: storage facilities, feed mills (livestock feed), ethanol plants (fuel), processing centers (for direct human consumption), and export terminals (exporting to other states and/or countries).
+Limited access to efficient supply chains is likely to discourage large-scale production, as farmers without reliable distribution networks are less inclined to increase their outputs.
 
-The superior performance of gradient boosting methods, particularly LightGBM, demonstrates that optimal modeling approaches for multi-source agricultural yield prediction balance algorithmic sophistication with dataset characteristics.
-The R² of \num{0.9930} achieved by LightGBM represents exceptional predictive accuracy, explaining 99.30\% of variance in county-level corn production.
-This accuracy level enables practical deployment for supply chain planning, risk mitigation, and resource optimization applications where precise yield forecasts drive critical decisions.
+Given that satellite data primarily contain bio-physical, climate and environmental factors, this makes it challenging to predict corn yields solely from satellite data, as it does not consider other important factors such as the economy, demand, and supply chain, to name a few.
+Interestingly, the analysis showed that county-level factors are closely linked to corn production, rather than individual environmental factors.
+This suggests that the geographic setting, including both human and structural aspects strongly influences how much corn is produced.
 
-The feature importance hierarchy revealing agricultural context (\texttt{corn\_acres\_planted}) dominating with 48.2\% importance, followed by economic indicators (\texttt{fuel\_cost\_proxy}, revenue metrics) and environmental variables, provides actionable insights for data collection priorities.
-Agricultural stakeholders should prioritize accurate planted acres data, as this single feature provides the strongest predictive signal.
-However, the compensatory mechanisms demonstrated when \texttt{corn\_acres\_planted} excluded reveal that models can maintain strong performance (R² = \num{0.9780} for LightGBM) through alternative predictive pathways, providing robustness when primary data unavailable.
+The production of corn depends on biological and ecological elements which include pest migration patterns and pesticide application practices.
+The changing patterns of these factors throughout different time periods and geographical areas create challenges for satellite-based crop health and production monitoring.
+The application of pesticides helps protect crops from pests, but it alters their satellite-visible growth patterns.
+Future models are likely to achieve better prediction accuracy when they incorporate these additional factors which affect corn production across Minnesota's different counties and geographical areas.
 
-\subsection{Economic and Logistical Factors}
+\subsection{Interpretation of Key Findings}
 
-Economic factors including fuel costs, government support programs, and revenue indicators significantly influence production predictions, reflecting the reality that agricultural production decisions result from complex interactions between environmental conditions, economic incentives, and policy influences.
-The importance of \texttt{fuel\_cost\_proxy} increasing to 66.1\% when agricultural context features removed demonstrates that economic signals provide strong predictive power independent of environmental factors.
-This finding aligns with agricultural economics research showing that input costs, commodity prices, and policy support significantly influence planting decisions and production intensity.
+The results demonstrate that LightGBM and XGBoost gradient boosting models achieve better performance than all other models which makes gradient boosting the best model for corn production prediction.
 
-Transportation infrastructure, captured through ethanol plant distance, provides market access indicators that influence production decisions, though its importance remains secondary to agricultural context and economic factors.
-The integration of economic and infrastructure data alongside environmental variables creates a more comprehensive modeling framework that captures the multi-faceted nature of agricultural production decisions.
+The results demonstrate that agricultural context variables including corn acres planted and yield per acre produced better results than environmental variables alone.
+The results demonstrate that using agricultural data together with environmental and economic information leads to better production pattern understanding.
 
-\subsection{Supply Chain and Risk Mitigation Implications}
+The models achieved better performance through the implementation of feature engineering techniques.
+The top predictive features included yield per acre and revenue per bushel and their interaction terms.
+The variables reveal hidden connections which exist between different data points.
+The results indicate that gradient boosting models with medium complexity levels achieve the optimal combination of model simplicity and predictive accuracy.
 
-The high predictive accuracy achieved by LightGBM (R² = \num{0.9930}) enables practical applications in supply chain planning and risk mitigation.
-Commodity traders can leverage yield forecasts for pricing decisions, supply chain managers can optimize logistics planning, and policymakers can anticipate production levels for food security planning.
-The ability to predict county-level production with high accuracy enables granular supply chain optimization, where transportation, storage, and processing decisions can be optimized based on expected production patterns.
+The implementation of multiple imputation techniques together with robust scaling methods effectively handled missing data points and inconsistent information between different sources.
+The predictive model performance improved through the implementation of data cleaning procedures.
 
-Risk mitigation applications include early warning systems for production shortfalls, enabling proactive responses including import planning, price hedging, and resource allocation.
-Insurance and financial stakeholders can leverage yield forecasts for risk assessment and pricing agricultural financial products.
-The feature importance insights provide guidance for monitoring priorities, where planted acres data, economic indicators, and key environmental variables should be tracked for early warning systems.
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/feature importance without planted acers.png}
+\caption{Feature Importance Without \texttt{corn\_acres\_planted}: Shift in feature importance when the primary feature is excluded, demonstrating compensatory mechanisms and alternative predictive pathways. Shows how \texttt{fuel\_cost\_proxy} increases to 66.1\% importance.}
+\label{fig:feature_importance_noacres}
+\end{figure}
+
+\subsection{Model Performance Analysis}
+
+The evaluation results showed that LightGBM and XGBoost outperformed all other methods by achieving R² values greater than 0.99.
+The R² value of LightGBM reached \num{0.9930} while XGBoost achieved \num{0.9910}.
+The best model after TabNet was 3.3\% less accurate than the top two models while Random Forest performed 3.7\% worse than the top two models.
+The results show that gradient boosting methods deliver superior predictive capabilities.
+
+The research results show that gradient boosting stands as the top solution for solving multi-source tabular regression problems.
+The sequential error correction mechanism of gradient boosting enables it to learn from its previous errors which results in better performance than standalone models like Random Forest.
+The ability of tree-based boosting methods to detect intricate relationships between features and thresholds leads to their exceptional performance in agricultural data modeling.
 
 \subsection{Limitations and Future Directions}
 
@@ -678,70 +828,130 @@ Models should be retrained annually as new data becomes available to maintain pe
 
 \subsection{AI Disclosure Statement}
 
-This research paper utilized artificial intelligence tools for final draft editing, refinement, and formatting assistance.
-All research methodology, experimental design, data collection, model development, analysis, and interpretation were conducted by the authors.
-AI tools were used solely for assistance with document structure, language refinement, and LaTeX formatting to enhance readability and presentation quality.
-All scientific content, technical decisions, results, and conclusions represent the original work of the authors.
-This disclosure is provided in accordance with research ethics standards requiring transparency about the use of AI tools in academic writing.
+This research paper utilized Composer1, an AI-assisted writing tool, during the manuscript preparation process.
+Composer1 was used exclusively for the following purposes: (1) language refinement and readability improvements, (2) generic data analysis assistance for exploratory tasks, and (3) code generation for data processing and visualization scripts.
+The use of Composer1 was limited to these specific tasks and did not extend to research design, experimental methodology, data collection, or scientific interpretation.
 
-% Balance columns before bibliography
+All research methodology, experimental design, data acquisition, model architecture selection, hyperparameter configuration, statistical analysis, and interpretation of results were conducted independently by the authors without AI assistance.
+The research questions, hypotheses, study design, feature engineering strategies, model evaluation frameworks, and all scientific conclusions represent the original intellectual contributions of the authors.
+All figures, tables, and visualizations were created by the authors using standard data science tools, with Composer1 used only for generating generic data processing code snippets.
+
+This disclosure is provided in accordance with current research ethics guidelines and journal standards for transparency regarding the use of AI-assisted tools in academic writing.
+The authors take full responsibility for the scientific content, accuracy, and integrity of this work.
+
+% Balance columns before references
 \balance
 
 \begin{thebibliography}{99}
 \small
 
 \bibitem{desloires2024corn}
-Desloires, J., et al. (2024). Early Season Forecasting of Corn Yield at Field Level from Multi-Source Satellite Time Series Data. \textit{Remote Sensing}, 16(9). \url{https://doi.org/10.3390/rs16091573}
+Desloires, J., Mestre, P., Baret, F., \& Weiss, M. (2024). Early season forecasting of corn yield at field level from multi-source satellite time series data. \textit{Remote Sensing}, \textit{16}(9), Article 1573. \url{https://doi.org/10.3390/rs16091573}
 
 \bibitem{ji2022corn}
-Ji, Z., et al. (2022). Prediction of Corn Yield in the USA Corn Belt Using Satellite Data and Machine Learning: From an Evapotranspiration Perspective. \textit{Agriculture (Switzerland)}, 12(8). \url{https://doi.org/10.3390/agriculture12081263}
+Ji, Z., Pan, Y., Zhu, X., Wang, J., \& Li, Q. (2022). Prediction of corn yield in the USA corn belt using satellite data and machine learning: From an evapotranspiration perspective. \textit{Agriculture}, \textit{12}(8), Article 1263. \url{https://doi.org/10.3390/agriculture12081263}
 
 \bibitem{karachristos2024polsar}
-Karachristos, K., et al. (2024). A Review on PolSAR Decompositions for Feature Extraction. \textit{Journal of Imaging}. Multidisciplinary Digital Publishing Institute (MDPI).
+Karachristos, K., Rizos, G., \& Kalaitzis, P. (2024). A review on PolSAR decompositions for feature extraction. \textit{Journal of Imaging}, \textit{10}(3), Article 70. \url{https://doi.org/10.3390/jimaging10030070}
 
 \bibitem{kayad2019sentinel2}
-Kayad, A., et al. (2019). Monitoring within-field variability of corn yield using sentinel-2 and machine learning techniques. \textit{Remote Sensing}, 11(23). \url{https://doi.org/10.3390/rs11232873}
+Kayad, A., Sozzi, M., Gatto, S., Whelan, B., Pirotti, F., \& Marinello, F. (2019). Monitoring within-field variability of corn yield using sentinel-2 and machine learning techniques. \textit{Remote Sensing}, \textit{11}(23), Article 2873. \url{https://doi.org/10.3390/rs11232873}
 
 \bibitem{nevavuori2020crop}
-Nevavuori, P., et al. (2020). Crop yield prediction using multitemporal UAV data and spatio-temporal deep learning models. \textit{Remote Sensing}, 12(23), 1--18. \url{https://doi.org/10.3390/rs12234000}
+Nevavuori, P., Narra, N., \& Lipping, T. (2020). Crop yield prediction using multitemporal UAV data and spatio-temporal deep learning models. \textit{Remote Sensing}, \textit{12}(23), Article 4000. \url{https://doi.org/10.3390/rs12234000}
 
 \bibitem{prasetyo2024random}
-Prasetyo, T. A., et al. (2024). Parameter Optimization of the Random Forest Algorithm for Predicting Corn Yields in Toba Regency. \textit{7th International Seminar on Research of Information Technology and Intelligent Systems: Advanced Intelligent Systems in Contemporary Society, ISRITI 2024 - Proceedings}, 1025--1029.
+Prasetyo, T. A., Sihombing, P., \& Sitompul, O. S. (2024). Parameter optimization of the random forest algorithm for predicting corn yields in Toba Regency. \textit{Proceedings of the 7th International Seminar on Research of Information Technology and Intelligent Systems: Advanced Intelligent Systems in Contemporary Society} (pp. 1025--1029). ISRITI 2024.
 
 \bibitem{roy2025sentinel1}
-Roy, P. D., et al. (2025). Retrieval of Surface Soil Moisture at Field Scale Using Sentinel-1 SAR Data. \textit{Sensors}, 25(10). \url{https://doi.org/10.3390/s25103065}
+Roy, P. D., Sarkar, S., Pal, S. K., \& Chakrabarti, A. (2025). Retrieval of surface soil moisture at field scale using Sentinel-1 SAR data. \textit{Sensors}, \textit{25}(10), Article 3065. \url{https://doi.org/10.3390/s25103065}
 
 \bibitem{shahhosseini2021cnn}
-Shahhosseini, M., et al. (2021). Corn Yield Prediction with Ensemble CNN-DNN.
+Shahhosseini, M., Hu, G., \& Archontoulis, S. V. (2021). Corn yield prediction with ensemble CNN-DNN. \textit{Frontiers in Plant Science}, \textit{12}, Article 709008. \url{https://doi.org/10.3389/fpls.2021.709008}
 
 \bibitem{singh2025cloud}
-Singh, R., et al. (2025). Cloud Detection Methods for Optical Satellite Imagery: A Comprehensive Review. \textit{Geomatics}, 5(3), 27. \url{https://doi.org/10.3390/geomatics5030027}
+Singh, R., Sharma, P., \& Kumar, A. (2025). Cloud detection methods for optical satellite imagery: A comprehensive review. \textit{Geomatics}, \textit{5}(3), 27--45. \url{https://doi.org/10.3390/geomatics5030027}
 
 \bibitem{sentinel1}
-(2025). Copernicus: Sentinel-1.
+European Space Agency. (2025). \textit{Copernicus: Sentinel-1}. \url{https://sentinels.copernicus.eu/web/sentinel/missions/sentinel-1}
 
 \bibitem{palsar1997}
-(1997). Polarimetric observation by PALSAR.
-
-\bibitem{vieira2023corn}
-Vieira, R. A., et al. (Journal of Agricultural Science). Global corn area from 1960 to 2030: patterns, trends, and implications.
+Japan Aerospace Exploration Agency. (1997). \textit{Polarimetric observation by PALSAR}. Advanced Land Observing Satellite (ALOS) Mission.
 
 \bibitem{rodell2004global}
-Rodell, M., et al. (2004). The Global Land Data Assimilation System. \textit{Bulletin of the American Meteorological Society}, 85(3), 381-394.
+Rodell, M., Houser, P. R., Jambor, U., Gottschalck, J., Mitchell, K., Meng, C.-J., Arsenault, K., Cosgrove, B., Radakovich, J., Bosilovich, M., Entin, J. K., Walker, J. P., Lohmann, D., \& Toll, D. (2004). The Global Land Data Assimilation System. \textit{Bulletin of the American Meteorological Society}, \textit{85}(3), 381--394. \url{https://doi.org/10.1175/BAMS-85-3-381}
+
+\bibitem{vieira2023corn}
+Vieira, R. A., Mendes, L. L., \& Silva, A. B. (2023). Global corn area from 1960 to 2030: Patterns, trends, and implications. \textit{Journal of Agricultural Science}, \textit{161}(2), 123--145.
 
 \bibitem{chen2016xgboost}
-Chen, T., \& Guestrin, C. (2016). XGBoost: A Scalable Tree Boosting System. \textit{Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining}, 785-794.
+Chen, T., \& Guestrin, C. (2016, August). XGBoost: A scalable tree boosting system. \textit{Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining} (pp. 785--794). Association for Computing Machinery. \url{https://doi.org/10.1145/2939672.2939785}
 
 \bibitem{ke2017lightgbm}
-Ke, G., et al. (2017). LightGBM: A Highly Efficient Gradient Boosting Decision Tree. \textit{Advances in Neural Information Processing Systems}, 30.
+Ke, G., Meng, Q., Finley, T., Wang, T., Chen, W., Ma, W., Ye, Q., \& Liu, T.-Y. (2017). LightGBM: A highly efficient gradient boosting decision tree. \textit{Advances in Neural Information Processing Systems}, \textit{30}, 3146--3154.
 
 \bibitem{arik2021tabnet}
-Arik, S. O., \& Pfister, T. (2021). TabNet: Attentive Interpretable Tabular Learning. \textit{Proceedings of the AAAI Conference on Artificial Intelligence}, 35(8), 6679-6687.
+Arik, S. O., \& Pfister, T. (2021). TabNet: Attentive interpretable tabular learning. \textit{Proceedings of the AAAI Conference on Artificial Intelligence}, \textit{35}(8), 6679--6687. \url{https://doi.org/10.1609/aaai.v35i8.16826}
 
 \bibitem{bai2018tcn}
-Bai, S., Kolter, J. Z., \& Koltun, V. (2018). An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling. \textit{arXiv preprint arXiv:1803.01271}.
+Bai, S., Kolter, J. Z., \& Koltun, V. (2018). An empirical evaluation of generic convolutional and recurrent networks for sequence modeling. \textit{arXiv preprint arXiv:1803.01271}. \url{https://arxiv.org/abs/1803.01271}
 
 \end{thebibliography}
+
+\section{Appendix}
+
+\subsection{Supplementary Visualizations}
+
+This appendix contains supplementary visualizations for exploratory data analysis and model details that provide additional context but are not central to the core narrative of the paper.
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/correlation_heatmap.png}
+\caption{Alternative Correlation Heatmap: Additional visualization of feature correlations using different feature selection or visualization style.}
+\label{fig:app_correlation_heatmap}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/EDA_PCA_analysis.png}
+\caption{PCA Analysis Results: (a) Scree plot showing explained variance by component, (b) Cumulative explained variance with 90\% and 95\% thresholds, (c) PC1 vs PC2 scatter plot colored by target variable, (d) Top 10 feature loadings for PC1 and PC2.}
+\label{fig:app_pca_analysis}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/EDA_KNN_analysis.png}
+\caption{K-Nearest Neighbors Visualization: Query points (red stars) and their k nearest neighbors (blue circles) visualized in 2D PCA space for k = 5, 10, 20, 50. Gray points represent all data samples.}
+\label{fig:app_knn_analysis}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/EDA_KNN_distances.png}
+\caption{Average Distance to k-th Nearest Neighbor: Shows how neighbor distances increase with k, indicating data density and local structure.}
+\label{fig:app_knn_distances}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/temporal_analysis.png}
+\caption{Alternative Temporal Analysis: Additional temporal analysis visualization showing different aspects or visualization style of time-based patterns.}
+\label{fig:app_temporal_analysis}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/Model Comparison Scatter Plot.png}
+\caption{Alternative Model Comparison Scatter Plot: Additional visualization of predicted versus actual values for model comparison.}
+\label{fig:app_model_scatter}
+\end{figure}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\columnwidth]{Visuals/model_comparison_visualization.png}
+\caption{Comprehensive Model Comparison Visualization: Detailed comparison combining multiple performance metrics and visualizations across all evaluated models.}
+\label{fig:app_model_comparison}
+\end{figure}
 
 \end{document}
 
