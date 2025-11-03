@@ -1,6 +1,6 @@
-# Corn Yield Prediction Using Satellite and Environmental Data
+# Machine Learning Benchmark for Predicting County-Level Corn Production in Minnesota
 
-A comprehensive machine learning project for predicting county-level corn production in Minnesota using satellite-derived environmental variables, economic indicators, and agricultural data.
+A comprehensive machine learning research project for predicting county-level corn production in Minnesota using multi-source satellite, environmental, and economic data. This project systematically compares eight machine learning algorithms across different complexity levels and achieves state-of-the-art predictive performance.
 
 ## 📋 Project Overview
 
@@ -54,17 +54,21 @@ This project integrates multiple data sources to build predictive models for cor
 
 ## 🤖 Models Implemented
 
+Eight machine learning algorithms were systematically evaluated across different complexity levels:
+
 ### Simple Models
-- **Polynomial Regression**: Degree-optimized with Ridge regularization
-- **Random Forest**: Ensemble of decision trees with hyperparameter tuning
+- **Polynomial Regression**: Degree-2 polynomial features with Ridge regularization (α = 100.0)
+- **Random Forest**: Ensemble of 200 decision trees with bootstrap aggregation
 
 ### Medium Complexity Models
-- **Support Vector Machine (SVM)**: RBF and linear kernels with parameter optimization
+- **Support Vector Machine (SVM)**: RBF kernel with epsilon-SVR algorithm
 
 ### Complex Models
-- **XGBoost**: Gradient boosting with comprehensive hyperparameter fine-tuning
-- **TCN (Temporal Convolutional Network)**: Deep learning for temporal patterns (PyTorch-based)
-- **MLP (Multi-Layer Perceptron)**: Neural network with transformer-inspired architecture
+- **XGBoost**: Gradient boosting with tree learners, L1/L2 regularization (R² = 0.9910)
+- **LightGBM**: Leaf-wise gradient boosting with histogram-based algorithm (**Best Model: R² = 0.9930**)
+- **TabNet**: Deep learning architecture with attention mechanism for tabular data
+- **LSTM (Long Short-Term Memory)**: Temporal neural network for sequential patterns
+- **TCN (Temporal Convolutional Network)**: Temporal convolutional network with progressive capacity reduction
 
 ## 📁 Project Structure
 
@@ -79,13 +83,17 @@ cis631_research_project/
 │   ├── gldas_all_bands_data.csv
 │   └── PRISM_percipitation_data.csv
 │
-├── Paper/                        # Research documentation
-│   └── Phase 3.docx             # Methodology document
+├── Research Paper/              # Complete research paper and documentation
+│   ├── Complete_Research_Paper.tex  # Main LaTeX research paper
+│   ├── best practice Latex.md   # LaTeX formatting guidelines
+│   └── Visuals/                # Research paper visualizations
+│       ├── EDA_*.png           # Exploratory data analysis figures
+│       ├── model_comparison_*.png
+│       ├── Feature Importance*.png
+│       └── xgboost_finetuning_analysis.png
 │
-├── Visuals/                      # Generated visualizations
-│   ├── model_comparison_*.png
-│   ├── xgboost_finetuning_analysis.png
-│   └── EDA_*.png
+├── Paper/                       # Legacy documentation
+│   └── Phase 3.docx            # Methodology document
 │
 ├── consolidate_data_phase3.py   # Data consolidation script
 ├── preprocess_phase3_data.py    # Data preprocessing script
@@ -192,15 +200,36 @@ The fine-tuning process includes:
 
 ## 📈 Model Performance
 
-Models are evaluated using:
-- **R² Score**: Coefficient of determination
-- **RMSE**: Root Mean Squared Error (in bushels)
-- **MAE**: Mean Absolute Error
-- **Training Time**: Computational efficiency
+### Best Performing Model: LightGBM
+- **R² Score**: 0.9930 (99.30% variance explained)
+- **RMSE**: 1,137,001 bushels
+- **MAE**: 526,195 bushels
+- **MAPE**: 29.44%
 
-Performance is reported on:
-- **Log scale**: Models trained on log-transformed target
-- **Original scale**: Metrics converted back to bushels
+### Top 3 Models
+1. **LightGBM**: R² = 0.9930, RMSE = 1,137,001 bushels
+2. **XGBoost**: R² = 0.9910, RMSE = 1,288,613 bushels
+3. **TabNet**: R² = 0.9599, RMSE = 2,719,162 bushels
+
+### Evaluation Metrics
+Models are evaluated using:
+- **R² Score**: Coefficient of determination (primary metric)
+- **RMSE**: Root Mean Squared Error (in bushels)
+- **MAE**: Mean Absolute Error (in bushels)
+- **MAPE**: Mean Absolute Percentage Error (%)
+
+### Performance Configuration
+- **Training Set**: Years 2000-2019 (10,400 samples, 86.5%)
+- **Test Set**: Years 2020-2022 (1,620 samples, 13.5%)
+- **Temporal Split**: Prevents data leakage by maintaining temporal separation
+- **Evaluation**: Metrics computed on original scale (after inverse log transformation)
+
+### Dual-Configuration Analysis
+Models evaluated with:
+1. **Full feature set**: 66 features including `corn_acres_planted`
+2. **Reduced feature set**: 65 features excluding `corn_acres_planted`
+
+LightGBM maintains strong performance even without primary feature (R² = 0.9780), demonstrating robust compensatory mechanisms.
 
 ## 🔍 Key Features
 
@@ -224,20 +253,43 @@ Performance is reported on:
 ## 📝 Methodology
 
 ### Data Integration Approach
-1. **Base Dataset**: Start with GLDAS corn production data (fips, year, month, features)
-2. **Feature Addition**: Merge additional features by FIPS and year/month
-3. **Temporal Aggregation**: Monthly to yearly (if needed)
-4. **Missing Data**: Multi-strategy imputation based on data type and temporal patterns
+1. **Base Dataset**: GLDAS corn production data (fips, year, month, features)
+2. **Feature Addition**: Merge additional features by FIPS and year/month using left joins
+3. **Data Sources**: Five primary sources integrated:
+   - GLDAS satellite-derived environmental variables
+   - USDA corn harvest and planted acres data
+   - Economic indicators from USDA Economic Research Service
+   - Diesel fuel prices (monthly)
+   - PRISM precipitation and temperature data
+4. **Temporal Aggregation**: Monthly to yearly aggregation where appropriate
+5. **Missing Data**: Multi-strategy imputation (forward-fill, backward-fill, interpolation, median imputation)
+
+### Feature Engineering
+Created **66 informative features** across multiple categories:
+- **Temporal**: Year trend, cyclical month encoding (sine/cosine)
+- **Soil**: Average moisture, moisture gradient
+- **Temperature**: Average, range, PCA components
+- **Water Balance**: Precipitation-evaporation balance, efficiency metrics
+- **Agricultural Context**: Yield per acre, fuel cost proxy
+- **Economic**: Revenue sources, revenue per bushel
+- **Spatial**: Ethanol plant distance categories
 
 ### Model Selection Strategy
-1. **Baseline**: Simple models establish performance floor
-2. **Comparison**: Medium complexity models test nonlinear relationships
-3. **Optimization**: Complex models fine-tuned for maximum performance
+1. **Simple Models**: Polynomial Regression, Random Forest (baseline performance)
+2. **Medium Complexity**: SVM (nonlinear pattern capture)
+3. **Complex Models**: XGBoost, LightGBM, TabNet, LSTM, TCN (state-of-the-art approaches)
 
 ### Hyperparameter Tuning
-- **Coarse Search**: Broad parameter ranges to identify optimal regions
-- **Fine-Tuning**: Narrow ranges around best parameters
-- **Reduced Search Space**: Optimized to complete in ~1 hour for Phase 3
+- **RandomizedSearchCV**: Efficient sampling of parameter space (15-25 iterations)
+- **GridSearchCV**: Exhaustive search for fine-tuning (reduced space for speed)
+- **Cross-Validation**: 3-fold CV for most models
+- **Early Stopping**: Applied for gradient boosting and deep learning models
+
+### Data Preprocessing
+- **Target Transformation**: Log transformation (log1p) to handle right-skewed distribution
+- **Feature Scaling**: RobustScaler (median and IQR-based, robust to outliers)
+- **Missing Value Handling**: Multi-strategy imputation with temporal and spatial context
+- **Outlier Handling**: RobustScaler inherently handles outliers while preserving information
 
 ## 🛡️ Data Leakage Prevention
 
@@ -399,11 +451,28 @@ If you see these, data leakage may be present:
 
 ## 🔬 Research Context
 
-This project is part of Phase 3 research methodology focusing on:
-- Integration of heterogeneous data sources
-- Comprehensive model comparison (simple vs complex)
-- Hyperparameter optimization
-- Feature engineering and selection
+This project represents a comprehensive benchmark study comparing eight machine learning algorithms for agricultural yield prediction. The research contributes to the agricultural yield prediction literature by:
+
+### Key Research Contributions
+1. **Comprehensive Benchmark**: Systematic comparison of 8 algorithms across complexity levels
+2. **Multi-Source Integration**: Integration of 5 heterogeneous data sources (satellite, economic, agricultural, climate, infrastructure)
+3. **Feature Engineering**: Creation of 66 informative features through comprehensive engineering
+4. **Dual-Configuration Analysis**: Evaluation with and without primary feature to assess redundancy
+5. **Methodological Rigor**: Temporal splitting, multi-strategy imputation, robust scaling
+
+### Key Findings
+- **Gradient Boosting Dominance**: LightGBM and XGBoost achieve R² > 0.99, significantly outperforming all other approaches
+- **Feature Importance Hierarchy**: Agricultural context (48.2% importance) > Economic indicators > Environmental variables
+- **Compensatory Mechanisms**: Models maintain strong performance (R² = 0.9780) even without primary feature
+- **Optimal Complexity**: Medium-complexity gradient boosting provides best balance of performance and efficiency
+
+### Research Paper
+A complete research paper is available in `Research Paper/Complete_Research_Paper.tex` following IMRaD structure:
+- Introduction and Literature Review
+- Data Sources and Methodology
+- Results and Model Comparison
+- Discussion and Conclusions
+- Complete Bibliography (APA style)
 
 ## ⚠️ Important Notes
 
@@ -434,17 +503,43 @@ This is a research project. For questions or issues:
 
 Research project - See paper documentation for details.
 
-## 📚 References
+## 📚 Key References
 
-- GLDAS: Global Land Data Assimilation System
-- PRISM: Parameter-elevation Regressions on Independent Slopes Model
-- NASA Quick Stats: Agricultural Census Data
-- XGBoost: Chen & Guestrin (2016)
-- TCN: Temporal Convolutional Networks for sequence modeling
+### Data Sources
+- **GLDAS**: Global Land Data Assimilation System (Rodell et al., 2004)
+- **PRISM**: Parameter-elevation Regressions on Independent Slopes Model
+- **USDA Quick Stats**: Agricultural Census Data
+- **USDA Economic Research Service**: Economic indicators
+
+### Algorithm References
+- **XGBoost**: Chen & Guestrin (2016) - Scalable Tree Boosting System
+- **LightGBM**: Ke et al. (2017) - Highly Efficient Gradient Boosting Decision Tree
+- **TabNet**: Arik & Pfister (2021) - Attentive Interpretable Tabular Learning
+- **TCN**: Bai et al. (2018) - Empirical Evaluation of Generic Convolutional and Recurrent Networks
+
+### Complete Bibliography
+See `Research Paper/Complete_Research_Paper.tex` for full reference list (17 references, APA style).
+
+## 👥 Authors
+
+- Tang Zi Jian (Jacob)
+- Emma Wele
+- Victor C
+- Onishi Rei
+
+## 📄 Research Paper
+
+The complete research paper is available in LaTeX format:
+- **Location**: `Research Paper/Complete_Research_Paper.tex`
+- **Structure**: IMRaD format (Introduction, Methods, Results, Discussion)
+- **Length**: ~40 pages (two-column format)
+- **Visuals**: 15 main-body figures + 7 appendix figures
+- **References**: 17 references in APA style
 
 ## 📧 Contact
 
 For questions about methodology or data sources, refer to:
+- `Research Paper/Complete_Research_Paper.tex` - Complete research paper
 - `Research_Paper.md` - Detailed research documentation
 - `Research_Insights.md` - Analysis insights
 - `Paper/Phase 3.docx` - Methodology document
@@ -452,4 +547,4 @@ For questions about methodology or data sources, refer to:
 ---
 
 **Last Updated**: 2024
-**Project Status**: Active Research
+**Project Status**: Research Complete - Paper Ready for Submission
