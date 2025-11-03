@@ -239,6 +239,148 @@ Performance is reported on:
 - **Fine-Tuning**: Narrow ranges around best parameters
 - **Reduced Search Space**: Optimized to complete in ~1 hour for Phase 3
 
+## 🛡️ Data Leakage Prevention
+
+### What is Data Leakage?
+
+Data leakage occurs when information from the future or test set inadvertently influences model training, leading to overly optimistic performance estimates that don't generalize to new data. This is a critical issue that can invalidate research findings.
+
+### Types of Data Leakage Prevented
+
+#### 1. **Temporal Data Leakage**
+- **Risk**: Using future information to predict past values
+- **Prevention**: 
+  - **Temporal Train-Test Split**: Data split by time period (2000-2019 for training, 2020-2022 for testing)
+  - No future data is used to predict past years
+  - Economic data imputation only uses historical values (forward-fill, not backward-fill from future)
+
+#### 2. **Preprocessing Data Leakage**
+- **Risk**: Computing statistics (mean, median, std) on entire dataset before splitting
+- **Prevention**:
+  - **Scaler Fitting**: `StandardScaler` is fit exclusively on training data
+    ```python
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)  # Fit on train only
+    X_test_scaled = scaler.transform(X_test)        # Transform test using train stats
+    ```
+  - **Imputation**: `SimpleImputer` fit on training data only
+    ```python
+    imputer = SimpleImputer(strategy='median')
+    X_train_imputed = imputer.fit_transform(X_train)  # Learn median from train
+    X_test_imputed = imputer.transform(X_test)        # Use train median on test
+    ```
+
+#### 3. **Target Leakage**
+- **Risk**: Using target-derived features that wouldn't be available at prediction time
+- **Prevention**:
+  - **Feature Selection**: Only use predictive features, not production-derived metrics
+  - **Acres Planted**: Used as feature (available at planting time), not acres harvested
+  - **No Future Production Data**: Production data from future years never influences training
+
+#### 4. **Cross-Validation Data Leakage**
+- **Risk**: Information leaking across CV folds
+- **Prevention**:
+  - **Scikit-learn Pipeline**: Ensures preprocessing is refit for each fold
+  - **Temporal CV**: When using time-based CV, ensures no future data in training folds
+  - **GridSearchCV**: Automatically handles proper splitting within each fold
+
+#### 5. **Feature Engineering Leakage**
+- **Risk**: Creating features using test set information
+- **Prevention**:
+  - All feature engineering (polynomial features, interactions) done on training set
+  - Transformers fit on training, applied to test:
+    ```python
+    poly_features = PolynomialFeatures(degree=degree)
+    X_train_poly = poly_features.fit_transform(X_train_scaled)  # Fit on train
+    X_test_poly = poly_features.transform(X_test_scaled)        # Apply to test
+    ```
+
+### Specific Prevention Measures in This Project
+
+#### Data Consolidation Phase (`consolidate_data_phase3.py`)
+- ✅ **No Target Information**: Only uses predictive features (acres planted, not production)
+- ✅ **Temporal Ordering**: Economic data imputation respects temporal order (forward-fill)
+- ✅ **Separate Processing**: Each data source processed independently before merging
+
+#### Preprocessing Phase (`preprocess_phase3_data.py`)
+- ✅ **Train-Test Split First**: Data split before any preprocessing
+- ✅ **Separate Scalers**: Each preprocessing step fit on training only
+- ✅ **No Test Statistics**: Test set never used to compute normalization parameters
+
+#### Model Training Phase (`model_benchmarking.py`, `SatelliteDataNew.ipynb`)
+- ✅ **Strict Temporal Split**: 
+  - Training: Years 2000-2019
+  - Testing: Years 2020-2022
+- ✅ **Independent Scaling**: Test data scaled using training statistics only
+- ✅ **Cross-Validation**: CV folds respect temporal order (no time shuffling)
+- ✅ **Hyperparameter Tuning**: GridSearchCV ensures no leakage across CV folds
+
+#### Feature Selection
+- ✅ **Only Predictive Features**: Features available at prediction time
+  - ✅ Acres planted (known at planting)
+  - ✅ Environmental variables (historical/current)
+  - ✅ Economic indicators (historical, forward-filled)
+  - ❌ Production data (target variable)
+  - ❌ Harvest data (occurs after planting)
+
+### Validation Protocol
+
+1. **Temporal Split Verification**:
+   - Training set: Years 2000-2019 (historical data)
+   - Test set: Years 2020-2022 (future data)
+   - No overlap or cross-contamination
+
+2. **Preprocessing Verification**:
+   - All scalers/imputers fit on training data
+   - Test data transformed using training parameters
+   - No statistics computed from test set
+
+3. **Feature Verification**:
+   - All features available at prediction time
+   - No target-derived features
+   - No future information leakage
+
+### Code Examples of Prevention
+
+```python
+# ✅ CORRECT: Fit scaler on training data only
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)  # Learn from train
+X_test_scaled = scaler.transform(X_test)        # Apply to test
+
+# ❌ WRONG: Would cause leakage
+scaler = StandardScaler()
+X_all_scaled = scaler.fit_transform(pd.concat([X_train, X_test]))  # DON'T DO THIS
+
+# ✅ CORRECT: Temporal split before preprocessing
+train_mask = df['year'] <= 2019
+X_train = df[train_mask].drop(columns=['corn_production_bu'])
+X_test = df[~train_mask].drop(columns=['corn_production_bu'])
+
+# ✅ CORRECT: Imputation fit on training only
+imputer = SimpleImputer(strategy='median')
+X_train_imputed = imputer.fit_transform(X_train)
+X_test_imputed = imputer.transform(X_test)
+```
+
+### Impact on Model Evaluation
+
+Proper data leakage prevention ensures:
+- **Realistic Performance Estimates**: Test scores reflect true generalization ability
+- **Reliable Model Comparison**: Models compared fairly without artificial inflation
+- **Production Readiness**: Models that perform well on test set will perform similarly in production
+- **Scientific Validity**: Research findings are credible and reproducible
+
+### Warning Signs to Watch For
+
+If you see these, data leakage may be present:
+- ⚠️ Test performance suspiciously high (R² > 0.99) without obvious reason
+- ⚠️ Test performance significantly better than cross-validation scores
+- ⚠️ Preprocessing fit on entire dataset before splitting
+- ⚠️ Features derived from target variable
+- ⚠️ Future data used to predict past values
+- ⚠️ Same scaler/transformer fit on train+test combined
+
 ## 📊 Outputs
 
 ### Generated Files

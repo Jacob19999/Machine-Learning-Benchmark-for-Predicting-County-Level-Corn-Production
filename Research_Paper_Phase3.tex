@@ -1,22 +1,89 @@
-\documentclass[12pt]{article}
+\documentclass[10pt,twocolumn]{article}
 \usepackage[utf8]{inputenc}
-\usepackage{amsmath}
+\usepackage{amsmath,amsfonts,amssymb}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{booktabs}
 \usepackage{geometry}
-\geometry{margin=1in}
+\usepackage{balance}
+\usepackage{flushend}
+\usepackage{abstract}
+\usepackage{url}
+\usepackage{cite}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{siunitx}
+\usepackage{fixmath}
 
-\title{Predicting County-Level Corn Production Using Multi-Source Satellite and Economic Data: A Comprehensive Machine Learning Benchmark}
-\author{[Author Name]}
-\date{\today}
+% Standard research paper margins and spacing
+\geometry{
+    top=0.75in,
+    bottom=0.75in,
+    left=0.6in,
+    right=0.6in,
+    columnsep=0.25in
+}
+
+% Line spacing - standard for research papers
+\renewcommand{\baselinestretch}{0.98}
+\setlength{\parskip}{0.5ex}
+\setlength{\parindent}{10pt}
+
+% Itemize spacing for two-column
+\setlist{nosep, leftmargin=*}
+\setlist[itemize]{topsep=2pt, itemsep=1pt}
+\setlist[enumerate]{topsep=2pt, itemsep=1pt}
+
+% Custom reference commands (best practice: keep references whole)
+\newcommand{\refalg}[1]{Algorithm~\ref{#1}}
+\newcommand{\refapp}[1]{Appendix~\ref{#1}}
+\newcommand{\refchap}[1]{Chapter~\ref{#1}}
+\newcommand{\refeq}[1]{Equation~\ref{#1}}
+\newcommand{\reffig}[1]{Figure~\ref{#1}}
+\newcommand{\refsec}[1]{Section~\ref{#1}}
+\newcommand{\reftab}[1]{Table~\ref{#1}}
+
+% siunitx configuration
+\sisetup{
+    group-separator = {,},
+    group-minimum-digits = 4,
+    round-mode = figures,
+    round-precision = 3,
+    per-mode = fraction
+}
+
+% Abstract formatting for two-column
+\renewcommand{\abstractname}{\small\textbf{Abstract}}
+
+% Section heading formatting for two-column
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {-3.5ex \@plus -1ex \@minus -.2ex}%
+  {2.3ex \@plus.2ex}%
+  {\normalfont\large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {-3.25ex\@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}%
+  {-3.25ex\@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\normalsize\itshape}}
+\makeatother
+
+\title{\large\textbf{Predicting County-Level Corn Production Using Multi-Source Satellite and Economic Data: A Comprehensive Machine Learning Benchmark}}
+\author{\small [Author Name]}
+\date{\small \today}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-This research presents a comprehensive machine learning framework for predicting county-level corn production in Minnesota by integrating multiple data sources including satellite-derived environmental variables from the Global Land Data Assimilation System (GLDAS), economic indicators, fuel prices, and PRISM precipitation data. Eight machine learning algorithms were systematically evaluated: Polynomial Regression, Support Vector Machine (SVM), Random Forest, XGBoost, LightGBM, TabNet, Temporal Neural Networks (LSTM), and Temporal Convolutional Networks (TCN). The study employed rigorous preprocessing including temporal train-test splitting (2000-2019 for training, 2020-2022 for testing), multi-strategy imputation, feature engineering (66 features), and robust scaling. The LightGBM model achieved superior performance with an R² of 0.9930 and root mean squared error (RMSE) of 1,137,001 bushels, explaining 99.30\% of variance in corn production. Feature importance analysis revealed that agricultural context features (corn acres planted, yield per acre) and economic indicators were the most critical predictors, followed by environmental variables. The results demonstrate that gradient boosting algorithms, particularly LightGBM, significantly outperform traditional ensemble methods and deep learning architectures for this multi-source tabular regression task. This study contributes to agricultural yield forecasting by establishing a comprehensive methodology for integrating heterogeneous data sources with machine learning techniques.
+\small
+This research presents a comprehensive machine learning framework for predicting county-level corn production in Minnesota by integrating multiple data sources including satellite-derived environmental variables from the Global Land Data Assimilation System (GLDAS), economic indicators, fuel prices, and PRISM precipitation data. Eight machine learning algorithms were systematically evaluated: Polynomial Regression, Support Vector Machine (SVM), Random Forest, XGBoost, LightGBM, TabNet, Temporal Neural Networks (LSTM), and Temporal Convolutional Networks (TCN). The study employed rigorous preprocessing including temporal train-test splitting (2000-2019 for training, 2020-2022 for testing), multi-strategy imputation, feature engineering (66 features), and robust scaling. The LightGBM model achieved superior performance with an R² of 0.9930 and root mean squared error (RMSE) of 1,137,001 bushels, explaining 99.30\% of variance in corn production. Feature importance analysis revealed that agricultural context features (corn acres planted, yield per acre) and economic indicators were the most critical predictors, followed by environmental variables. The results demonstrate that gradient boosting algorithms, particularly LightGBM, significantly outperform traditional ensemble methods and deep learning architectures for this multi-source tabular regression task.
 
 \textbf{Keywords:} Agricultural yield prediction, machine learning, satellite remote sensing, LightGBM, multi-source data integration, GLDAS, PRISM
 \end{abstract}
@@ -25,7 +92,7 @@ This research presents a comprehensive machine learning framework for predicting
 
 Agricultural yield prediction is critical for food security, resource optimization, and economic planning. Traditional forecasting methods rely on historical averages and field surveys, which are limited in capturing spatial-temporal variability. The integration of satellite remote sensing data with economic and agricultural context data, combined with machine learning techniques, offers a promising data-driven approach for yield prediction at county and regional scales.
 
-This research extends previous work by incorporating multiple heterogeneous data sources beyond satellite-derived environmental variables, including economic indicators, fuel prices, transportation infrastructure (ethanol plant distances), and precipitation data from t\alert{\alert{text}}he Parameter-elevation Regressions on Independent Slopes Model (PRISM). By systematically comparing eight machine learning algorithms across different complexity levels, this study identifies optimal modeling approaches for multi-source agricultural yield prediction.
+This research extends previous work by incorporating multiple heterogeneous data sources beyond satellite-derived environmental variables, including economic indicators, fuel prices, transportation infrastructure (ethanol plant distances), and precipitation data from the Parameter-elevation Regressions on Independent Slopes Model (PRISM). By systematically comparing eight machine learning algorithms across different complexity levels, this study identifies optimal modeling approaches for multi-source agricultural yield prediction.
 
 \section{Data}
 
@@ -183,28 +250,28 @@ Source: PRISM Climate Group, Oregon State University - 4km resolution gridded cl
 
 \subsection{Target Variable Distribution}
 
-The target variable (\texttt{corn\_production\_bu}) exhibits a highly right-skewed distribution (Figure \ref{fig:target_distribution}):
+The target variable (\texttt{corn\_production\_bu}) exhibits a highly right-skewed distribution (\reffig{fig:target_distribution}):
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.9\textwidth]{Visuals/EDA_target_distribution.png}
+\includegraphics[width=\columnwidth]{Visuals/EDA_target_distribution.png}
 \caption{Target Variable Distribution Analysis: (a) Histogram of corn production showing right skew, (b) Box plot revealing outliers, (c) Log-transformed distribution showing normalization, (d) Q-Q plot confirming approximate normality after log transformation.}
 \label{fig:target_distribution}
 \end{figure}
 
 \textbf{Distribution Characteristics:}
 \begin{itemize}
-    \item Mean: $\approx$ 16.1 million bushels
-    \item Median: $\approx$ 12.5 million bushels
-    \item Standard Deviation: $\approx$ 12.3 million bushels
-    \item Skewness: Strongly right-skewed (median $<$ mean indicates positive skew)
-    \item Range: 5,900 to 56,800,000 bushels
+    \item Mean: \(\approx\num{16100000}\) bushels
+    \item Median: \(\approx\num{12500000}\) bushels
+    \item Standard Deviation: \(\approx\num{12300000}\) bushels
+    \item Skewness: Strongly right-skewed (median \( < \) mean indicates positive skew)
+    \item Range: \num{5900} to \num{56800000} bushels
     \item Kurtosis: High positive kurtosis indicating heavy tails
 \end{itemize}
 
 \textbf{Key Observations:}
 \begin{itemize}
-    \item \textbf{Right Skew}: Most counties produce moderate amounts (5-30M bushels), with few high-production counties ($>$40M bushels)
+    \item \textbf{Right Skew}: Most counties produce moderate amounts (\num{5000000}--\num{30000000} bushels), with few high-production counties (\(>\num{40000000}\) bushels)
     \item \textbf{Log Transformation Justification}: Q-Q plot confirms that log transformation (\texttt{log1p}) normalizes the distribution effectively
     \item \textbf{Outliers}: Box plot reveals numerous high-production outliers representing major corn-producing counties
     \item \textbf{Modeling Implication}: Log transformation prevents large counties from dominating the loss function during training
@@ -214,11 +281,11 @@ This distributional skewness justifies the application of log transformation (\t
 
 \subsection{Temporal Analysis}
 
-Temporal analysis reveals important patterns in corn production across the 23-year study period (Figure \ref{fig:temporal_analysis}):
+Temporal analysis reveals important patterns in corn production across the 23-year study period (\reffig{fig:temporal_analysis}):
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.9\textwidth]{Visuals/EDA_temporal_analysis.png}
+\includegraphics[width=\columnwidth]{Visuals/EDA_temporal_analysis.png}
 \caption{Temporal Analysis of Corn Production: (a) Mean production over time with standard deviation bands, (b) Production variance showing increasing variability, (c) Number of observations per year, (d) Total state production over time.}
 \label{fig:temporal_analysis}
 \end{figure}
@@ -234,7 +301,7 @@ Temporal analysis reveals important patterns in corn production across the 23-ye
 \textbf{Variance Analysis:}
 \begin{itemize}
     \item Production variance increases over time, indicating growing variability across counties
-    \item Standard deviation ranges from $\sim$8M bushels (early 2000s) to $\sim$15M bushels (recent years)
+    \item Standard deviation ranges from \(\sim\num{8000000}\) bushels (early 2000s) to \(\sim\num{15000000}\) bushels (recent years)
     \item Peak variance in 2012 (drought year) demonstrates extreme weather impact
     \item Increasing variance suggests growing disparity between high and low production counties
 \end{itemize}
@@ -248,46 +315,46 @@ Temporal analysis reveals important patterns in corn production across the 23-ye
 
 \subsection{Correlation Analysis}
 
-Correlation analysis reveals relationships between features and corn production (Figures \ref{fig:correlation_target} and \ref{fig:correlation_heatmap}):
+Correlation analysis reveals relationships between features and corn production (\reffig{fig:correlation_target} and \reffig{fig:correlation_heatmap}):
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.9\textwidth]{Visuals/EDA_correlation_target.png}
+\includegraphics[width=\columnwidth]{Visuals/EDA_correlation_target.png}
 \caption{Feature Correlation with Target Variable: (a) Top 15 positive correlations, (b) Top 15 negative correlations with corn production.}
 \label{fig:correlation_target}
 \end{figure}
 
 \textbf{Top Positively Correlated Features:}
 \begin{itemize}
-    \item \texttt{corn\_acres\_planted}: $r \approx 0.95+$ (very strong - expected direct relationship)
-    \item \texttt{ESoil\_tavg} (bare soil evaporation temperature): $r = 0.782$
-    \item \texttt{SoilMoi100\_200cm\_inst} (deep soil moisture): $r = 0.601$
-    \item \texttt{LWdown\_f\_tavg} (longwave downward radiation): $r = 0.511$
-    \item \texttt{SoilTMP100\_200cm\_inst} (deep soil temperature): $r = 0.454$
-    \item \texttt{Tair\_f\_inst} (air temperature): $r = 0.448$
-    \item \texttt{yield\_per\_acre} (engineered feature): $r \approx 0.4-0.5$
+    \item \texttt{corn\_acres\_planted}: \(r \approx 0.95+\) (very strong - expected direct relationship)
+    \item \texttt{ESoil\_tavg} (bare soil evaporation temperature): \(r = 0.782\)
+    \item \texttt{SoilMoi100\_200cm\_inst} (deep soil moisture): \(r = 0.601\)
+    \item \texttt{LWdown\_f\_tavg} (longwave downward radiation): \(r = 0.511\)
+    \item \texttt{SoilTMP100\_200cm\_inst} (deep soil temperature): \(r = 0.454\)
+    \item \texttt{Tair\_f\_inst} (air temperature): \(r = 0.448\)
+    \item \texttt{yield\_per\_acre} (engineered feature): \(r \approx 0.4-0.5\)
 \end{itemize}
 
 \textbf{Top Negatively Correlated Features:}
 \begin{itemize}
-    \item \texttt{Albedo\_inst} (surface albedo): $r = -0.262$
-    \item \texttt{SnowDepth\_inst} (snow depth): $r = -0.246$
-    \item \texttt{Qs\_acc} (surface runoff): $r = -0.219$
-    \item \texttt{SWE\_inst} (snow water equivalent): $r = -0.215$
+    \item \texttt{Albedo\_inst} (surface albedo): \(r = -0.262\)
+    \item \texttt{SnowDepth\_inst} (snow depth): \(r = -0.246\)
+    \item \texttt{Qs\_acc} (surface runoff): \(r = -0.219\)
+    \item \texttt{SWE\_inst} (snow water equivalent): \(r = -0.215\)
 \end{itemize}
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.9\textwidth]{Visuals/EDA_correlation_heatmap.png}
+\includegraphics[width=\columnwidth]{Visuals/EDA_correlation_heatmap.png}
 \caption{Correlation Heatmap for Top 20 Features: Color intensity represents correlation strength, with red indicating positive and blue indicating negative correlations.}
 \label{fig:correlation_heatmap}
 \end{figure}
 
 \textbf{Inter-Feature Correlations:}
-The correlation heatmap (Figure \ref{fig:correlation_heatmap}) reveals several important patterns:
+The correlation heatmap (\reffig{fig:correlation_heatmap}) reveals several important patterns:
 \begin{itemize}
-    \item \textbf{Temperature Cluster}: High correlations ($r > 0.8$) among air, surface, and soil temperatures
-    \item \textbf{Soil Moisture Cluster}: Moderate correlations ($r = 0.4-0.7$) among different soil moisture depths
+    \item \textbf{Temperature Cluster}: High correlations (\(r > 0.8\)) among air, surface, and soil temperatures
+    \item \textbf{Soil Moisture Cluster}: Moderate correlations (\(r = 0.4-0.7\)) among different soil moisture depths
     \item \textbf{Economic Features}: Moderate correlations among revenue and government receipt features
     \item \textbf{Multicollinearity}: Temperature features require PCA to reduce dimensionality
 \end{itemize}
@@ -302,11 +369,11 @@ The correlation heatmap (Figure \ref{fig:correlation_heatmap}) reveals several i
 
 \subsection{Principal Component Analysis (PCA)}
 
-A comprehensive PCA analysis was performed on all numeric features to identify dimensionality reduction opportunities and understand data structure (Figure \ref{fig:pca_analysis}):
+A comprehensive PCA analysis was performed on all numeric features to identify dimensionality reduction opportunities and understand data structure (\reffig{fig:pca_analysis}):
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.9\textwidth]{Visuals/EDA_PCA_analysis.png}
+\includegraphics[width=\columnwidth]{Visuals/EDA_PCA_analysis.png}
 \caption{PCA Analysis Results: (a) Scree plot showing explained variance by component, (b) Cumulative explained variance with 90\% and 95\% thresholds, (c) PC1 vs PC2 scatter plot colored by target variable, (d) Top 10 feature loadings for PC1 and PC2.}
 \label{fig:pca_analysis}
 \end{figure}
@@ -321,7 +388,7 @@ A comprehensive PCA analysis was performed on all numeric features to identify d
 \end{itemize}
 
 \textbf{PC1 and PC2 Interpretation:}
-The scatter plot (Figure \ref{fig:pca_analysis}c) reveals:
+The scatter plot (\reffig{fig:pca_analysis}c) reveals:
 \begin{itemize}
     \item \textbf{PC1} primarily captures scale-related information (production magnitude)
     \item \textbf{PC2} captures environmental condition gradients
@@ -330,7 +397,7 @@ The scatter plot (Figure \ref{fig:pca_analysis}c) reveals:
 \end{itemize}
 
 \textbf{Feature Loadings:}
-Top features contributing to PC1 and PC2 (Figure \ref{fig:pca_analysis}d):
+Top features contributing to PC1 and PC2 (\reffig{fig:pca_analysis}d):
 \begin{itemize}
     \item \textbf{PC1 Loadings}: Dominated by agricultural context (\texttt{corn\_acres\_planted}, \texttt{yield\_per\_acre}) and economic features
     \item \textbf{PC2 Loadings}: Dominated by environmental variables (soil moisture, temperature, precipitation)
@@ -355,11 +422,11 @@ For temperature features specifically:
 
 \subsection{K-Nearest Neighbors (KNN) Analysis}
 
-K-Nearest Neighbors analysis reveals data structure and similarity patterns in high-dimensional space (Figures \ref{fig:knn_analysis} and \ref{fig:knn_distances}):
+K-Nearest Neighbors analysis reveals data structure and similarity patterns in high-dimensional space (\reffig{fig:knn_analysis} and \reffig{fig:knn_distances}):
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.9\textwidth]{Visuals/EDA_KNN_analysis.png}
+\includegraphics[width=\columnwidth]{Visuals/EDA_KNN_analysis.png}
 \caption{K-Nearest Neighbors Visualization: Query points (red stars) and their k nearest neighbors (blue circles) visualized in 2D PCA space for k = 5, 10, 20, 50. Gray points represent all data samples.}
 \label{fig:knn_analysis}
 \end{figure}
@@ -372,9 +439,9 @@ K-Nearest Neighbors analysis reveals data structure and similarity patterns in h
     \item \textbf{k-Varying Behavior}: As k increases, neighbors span wider regions, indicating data continuity
 \end{itemize}
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.7\textwidth]{Visuals/EDA_KNN_distances.png}
+\includegraphics[width=\columnwidth]{Visuals/EDA_KNN_distances.png}
 \caption{Average Distance to k-th Nearest Neighbor: Shows how neighbor distances increase with k, indicating data density and local structure.}
 \label{fig:knn_distances}
 \end{figure}
@@ -397,11 +464,11 @@ K-Nearest Neighbors analysis reveals data structure and similarity patterns in h
 
 \subsection{Feature Distribution Analysis}
 
-Feature distribution analysis provides insights into data characteristics across different feature types (Figure \ref{fig:feature_distributions}):
+Feature distribution analysis provides insights into data characteristics across different feature types (\reffig{fig:feature_distributions}):
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.9\textwidth]{Visuals/EDA_feature_distributions.png}
+\includegraphics[width=\columnwidth]{Visuals/EDA_feature_distributions.png}
 \caption{Distribution Analysis for Top 12 Features: Histograms showing feature distributions with mean and median lines. Features selected by correlation with target variable or variance.}
 \label{fig:feature_distributions}
 \end{figure}
@@ -437,12 +504,12 @@ Feature distribution analysis provides insights into data characteristics across
 
 \subsection{Missing Value Analysis}
 
-Missing value analysis reveals data completeness across features (Figure \ref{fig:missing_values}):
+Missing value analysis reveals data completeness across features (\reffig{fig:missing_values}):
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.9\textwidth]{Visuals/EDA_missing_values.png}
-\caption{Missing Value Analysis: Top 20 columns with missing data, showing percentage of missing values per column.}
+\includegraphics[width=\columnwidth]{Visuals/EDA_missing_values.png}
+\caption{Missing Value Analysis: Top 10 columns with missing data, showing number of missing values per column.}
 \label{fig:missing_values}
 \end{figure}
 
@@ -466,11 +533,11 @@ Multi-strategy imputation was applied based on missing percentage:
 
 \subsection{Outlier Detection and Analysis}
 
-Outlier detection using 3×Interquartile Range (IQR) method identified outliers across features (Figure \ref{fig:outlier_detection}):
+Outlier detection using 3×Interquartile Range (IQR) method identified outliers across features (\reffig{fig:outlier_detection}):
 
-\begin{figure}[h]
+\begin{figure}[htb]
 \centering
-\includegraphics[width=0.9\textwidth]{Visuals/EDA_outlier_detection.png}
+\includegraphics[width=\columnwidth]{Visuals/EDA_outlier_detection.png}
 \caption{Outlier Detection Analysis: Box plots for top 6 features with outliers, showing upper and lower bounds (3×IQR) as dashed red lines.}
 \label{fig:outlier_detection}
 \end{figure}
@@ -503,90 +570,30 @@ RobustScaler was applied to all features, which uses median and IQR-based scalin
 
 \subsection{Data Consolidation Process}
 
-The consolidation process merges five data sources using the following strategy:
-
-\begin{enumerate}
-    \item \textbf{Base Dataset Loading:} Start with GLDAS corn data as foundation
-    \item \textbf{Left Joins:} All additional data sources merged using left joins on FIPS and year/month
-    \item \textbf{FIPS Matching:} Multiple strategies employed for PRISM data:
-    \begin{itemize}
-        \item Exact match on FIPS codes
-        \item Partial string matching with county names
-        \item Reverse matching with string cleaning
-    \end{itemize}
-    \item \textbf{Temporal Alignment:} Monthly data (diesel, PRISM) aligned with yearly aggregations (corn production, economy)
-\end{enumerate}
+The consolidation process merges five data sources using a systematic strategy. The process begins with GLDAS corn data as the foundation dataset. All additional data sources are merged using left joins on FIPS codes and year/month identifiers to preserve all base observations. For PRISM data, multiple matching strategies are employed: exact match on FIPS codes, partial string matching with county names, and reverse matching with string cleaning to handle naming inconsistencies. Temporal alignment is achieved by matching monthly data (diesel prices, PRISM precipitation) with yearly aggregations (corn production, economy indicators) based on the year and month fields.
 
 \subsection{Missing Value Imputation}
 
-A multi-strategy imputation approach was implemented, with strategy selection based on missing data percentage:
-
-\subsubsection{Features with <20\% Missing:}
-\begin{itemize}
-    \item Forward fill (\texttt{ffill}) - propagate last known value forward
-    \item Backward fill (\texttt{bfill}) - propagate next known value backward
-    \item Median imputation as final fallback
-\end{itemize}
-
-\subsubsection{Features with 20-50\% Missing:}
-\begin{itemize}
-    \item Direct median imputation
-    \item Applied to economic indicators with moderate missingness
-\end{itemize}
-
-\subsubsection{Features with >50\% Missing:}
-\begin{itemize}
-    \item Column dropped from feature set
-    \item Prevents imputation bias from excessive missingness
-\end{itemize}
+A multi-strategy imputation approach was implemented, with strategy selection based on missing data percentage. For features with less than 20\% missing values, a three-step cascade is applied: forward fill (\texttt{ffill}) to propagate the last known value forward, backward fill (\texttt{bfill}) to propagate the next known value backward, and median imputation as a final fallback. For features with 20-50\% missing values, direct median imputation is applied, primarily used for economic indicators with moderate missingness. Features with more than 50\% missing values are dropped from the feature set to prevent imputation bias from excessive missingness.
 
 \subsubsection{Special Case: Economy Data Multi-Strategy Imputation}
 
-For economic indicators with extensive gaps, a six-strategy cascade was implemented (in order):
-
-\begin{enumerate}
-    \item \textbf{Forward Fill (Temporal):} Within each county, forward fill based on temporal order
-    \item \textbf{Backward Fill (Temporal):} Within each county, backward fill based on temporal order
-    \item \textbf{Linear Interpolation:} Interpolate missing values between known points
-    \item \textbf{County Median:} Fill with county-specific median (spatial context)
-    \item \textbf{Year-Specific Median:} Fill with year-specific median across all counties (temporal context)
-    \item \textbf{Overall Median:} Final fallback using global median
-\end{enumerate}
-
-This approach preserves both spatial (county-level) and temporal patterns while ensuring complete data coverage.
+For economic indicators with extensive gaps, a six-strategy cascade was implemented in sequential order. First, forward fill is applied temporally within each county to propagate the last known value forward. Second, backward fill is applied temporally within each county to propagate the next known value backward. Third, linear interpolation is used to interpolate missing values between known points. Fourth, county-specific median imputation provides spatial context by filling with county-specific medians. Fifth, year-specific median imputation provides temporal context by filling with year-specific medians across all counties. Finally, overall median serves as the ultimate fallback using the global median. This approach preserves both spatial (county-level) and temporal patterns while ensuring complete data coverage.
 
 \subsection{Data Filtering}
 
-\textbf{Zero Production Removal:}
-\begin{itemize}
-    \item Removed 283 records with zero corn production
-    \item These represent non-corn-growing years or counties
-\end{itemize}
-
-\textbf{Missing Target Removal:}
-\begin{itemize}
-    \item Removed records where target variable (\texttt{corn\_production\_bu}) is missing
-    \item Final dataset: 12,026 observations with complete target values
-\end{itemize}
+Data filtering involved removing records with zero corn production and missing target values. A total of \num{283} records with zero corn production were removed, as these represent non-corn-growing years or counties. Additionally, all records where the target variable (\texttt{corn\_production\_bu}) is missing were removed, resulting in a final dataset of \num{12026} observations with complete target values.
 
 \subsection{Feature Scaling}
 
-\textbf{RobustScaler Application:}
-\begin{itemize}
-    \item All numeric features scaled using RobustScaler (sklearn)
-    \item Uses median and IQR instead of mean and standard deviation
-    \item Inherently robust to outliers
-    \item Formula: $X_{scaled} = \frac{X - median(X)}{IQR(X)}$
-    \item Scaler fitted exclusively on training data (2000-2019)
-    \item Applied to both training and test sets using fitted scaler
-\end{itemize}
+All numeric features were scaled using RobustScaler from scikit-learn, which uses median and interquartile range (IQR) instead of mean and standard deviation, making it inherently robust to outliers. The scaling formula is \(X_{\text{scaled}} = \frac{X - \text{median}(X)}{\text{IQR}(X)}\). The scaler was fitted exclusively on training data (years 2000-2019) and then applied to both training and test sets using the fitted scaler to prevent data leakage.
 
 \subsection{Feature Engineering}
 
 \subsubsection{Temporal Features}
 
 \begin{itemize}
-    \item \texttt{year\_trend}: Linear temporal trend $(year - 2000)$ capturing long-term productivity improvements
+    \item \texttt{year\_trend}: Linear temporal trend \(year - 2000\) capturing long-term productivity improvements
     \item \texttt{month\_sin} and \texttt{month\_cos}: Cyclical encoding of months using sine/cosine transformation
     \begin{align}
         month_{sin} &= \sin\left(\frac{2\pi \cdot month}{12}\right) \\
@@ -644,339 +651,57 @@ This approach preserves both spatial (county-level) and temporal patterns while 
 
 \subsection{Data Splitting}
 
-\textbf{Temporal Train-Test Split:}
-\begin{itemize}
-    \item Training set: 2000-2019 (10,409 samples)
-    \item Test set: 2020-2022 (1,617 samples)
-    \item Split ratio: Approximately 86.5\% train, 13.5\% test
-    \item Prevents data leakage by ensuring no temporal overlap
-\end{itemize}
-
-\textbf{Critical Protocol:}
-\begin{itemize}
-    \item All preprocessing steps requiring fitting (scaling, encoding) performed AFTER split
-    \item Transformers fit exclusively on training data
-    \item Test data transformed using fitted transformers
-    \item Ensures no information leakage from future data to past predictions
-\end{itemize}
+A temporal train-test split was performed to prevent data leakage, with the training set encompassing years 2000-2019 (10,409 samples) and the test set covering years 2020-2022 (1,617 samples), resulting in an approximate split ratio of 86.5\% training and 13.5\% test data. This temporal separation ensures no temporal overlap between training and test sets. Following this split, all preprocessing steps requiring fitting (scaling, encoding) were performed exclusively on the training data. Transformers were fit exclusively on training data, and test data was transformed using these fitted transformers to ensure no information leakage from future data to past predictions.
 
 \section{Model Benchmarking}
 
 \subsection{Model Selection Rationale}
 
-Eight machine learning algorithms were selected to provide comprehensive comparison across different complexity levels:
-
-\textbf{Low Complexity Models:}
-\begin{enumerate}
-    \item Polynomial Regression
-    \item Support Vector Machine (SVM)
-    \item Random Forest
-\end{enumerate}
-
-\textbf{Medium Complexity Models:}
-\begin{enumerate}
-    \item XGBoost
-    \item LightGBM
-\end{enumerate}
-
-\textbf{High Complexity Models:}
-\begin{enumerate}
-    \item TabNet
-    \item Temporal Neural Network (LSTM)
-    \item Temporal Convolutional Network (TCN)
-\end{enumerate}
+Eight machine learning algorithms were selected to provide comprehensive comparison across different complexity levels. The low complexity models include Polynomial Regression, Support Vector Machine (SVM), and Random Forest, which provide baseline performance with relatively simple architectures. Medium complexity models encompass XGBoost and LightGBM, representing state-of-the-art gradient boosting methods optimized for tabular data. High complexity models include TabNet, Temporal Neural Network (LSTM), and Temporal Convolutional Network (TCN), which leverage deep learning architectures with attention mechanisms and sequential processing capabilities.
 
 \subsection{Polynomial Regression}
 
-\textbf{Architecture:}
-\begin{itemize}
-    \item Polynomial degree: 2 (quadratic features)
-    \item Interaction-only mode: \texttt{interaction\_only=True} (only feature interactions, not pure squares)
-    \item Regularization: Ridge regression with $\alpha = 100.0$
-    \item Solver: Auto (typically uses Cholesky or SVD)
-    \item Max iterations: 2000
-\end{itemize}
-
-\textbf{Rationale:}
-\begin{itemize}
-    \item Captures non-linear relationships with low computational cost
-    \item Interaction-only reduces feature explosion from $\sim$2000+ to $\sim$2000 features
-    \item Ridge regularization prevents overfitting and numerical instability
-\end{itemize}
-
-\textbf{Hyperparameters:}
-\begin{itemize}
-    \item \texttt{degree}: 2
-    \item \texttt{include\_bias}: False
-    \item \texttt{interaction\_only}: True
-    \item \texttt{Ridge alpha}: 100.0
-\end{itemize}
+Polynomial Regression employs a polynomial degree of 2 to generate quadratic features, with interaction-only mode enabled (\texttt{interaction\_only=True}) to capture only feature interactions rather than pure squared terms. The model utilizes Ridge regression with \(\alpha = 100.0\) for regularization, preventing overfitting and numerical instability. The solver operates automatically, typically using Cholesky or SVD decomposition with a maximum of 2000 iterations. This approach captures non-linear relationships with low computational cost, while the interaction-only mode reduces feature explosion from approximately 2000+ potential features to approximately 2000 actual features. The hyperparameters include \texttt{degree}=2, \texttt{include\_bias}=False, \texttt{interaction\_only}=True, and \texttt{Ridge alpha}=100.0.
 
 \subsection{Support Vector Machine (SVM)}
 
-\textbf{Architecture:}
-\begin{itemize}
-    \item Kernel: Radial Basis Function (RBF)
-    \item Training subset: 5,000 samples (SVM scales poorly with large datasets)
-    \item Algorithm: epsilon-SVR (Support Vector Regression)
-\end{itemize}
-
-\textbf{Hyperparameters:}
-\begin{itemize}
-    \item \texttt{kernel}: 'rbf'
-    \item \texttt{C}: 100 (regularization parameter)
-    \item \texttt{epsilon}: 0.1 (epsilon-tube width)
-    \item \texttt{gamma}: 'scale' (automatic kernel coefficient)
-    \item \texttt{max\_iter}: 10,000
-\end{itemize}
-
-\textbf{Rationale:}
-\begin{itemize}
-    \item RBF kernel captures non-linear patterns
-    \item Subset training addresses computational limitations
-    \item High C value allows flexible decision boundaries
-\end{itemize}
-
-\textbf{Limitations:}
-\begin{itemize}
-    \item Cannot scale to full training set (10,409 samples)
-    \item Memory-intensive for large datasets
-    \item Slower training compared to tree-based methods
-\end{itemize}
+The Support Vector Machine utilizes a Radial Basis Function (RBF) kernel with epsilon-SVR algorithm for regression. Due to computational limitations, the model is trained on a subset of 5,000 samples, as SVM scales poorly with large datasets. The hyperparameters include \texttt{kernel}='rbf', \texttt{C}=100 for regularization, \texttt{epsilon}=0.1 defining the epsilon-tube width, \texttt{gamma}='scale' for automatic kernel coefficient determination, and \texttt{max\_iter}=10,000. The RBF kernel effectively captures non-linear patterns, while the high C value allows flexible decision boundaries. However, the model cannot scale to the full training set of 10,409 samples, is memory-intensive for large datasets, and exhibits slower training compared to tree-based methods.
 
 \subsection{Random Forest}
 
-\textbf{Architecture:}
-\begin{itemize}
-    \item Ensemble of 200 decision trees
-    \item Bootstrap aggregation (bagging)
-    \item Out-of-bag (OOB) scoring enabled
-\end{itemize}
-
-\textbf{Hyperparameters:}
-\begin{itemize}
-    \item \texttt{n\_estimators}: 200
-    \item \texttt{max\_depth}: 12
-    \item \texttt{min\_samples\_split}: 10
-    \item \texttt{min\_samples\_leaf}: 4
-    \item \texttt{max\_features}: 'sqrt' ($\sqrt{66} \approx 8$ features per split)
-    \item \texttt{bootstrap}: True
-    \item \texttt{oob\_score}: True
-\end{itemize}
-
-\textbf{Rationale:}
-\begin{itemize}
-    \item Moderate depth (12) balances complexity and overfitting
-    \item Sqrt feature sampling reduces correlation between trees
-    \item OOB score provides validation without separate validation set
-\end{itemize}
-
-\textbf{Feature Importance:} Mean decrease in impurity (Gini importance)
+Random Forest employs an ensemble of 200 decision trees with bootstrap aggregation (bagging) and out-of-bag (OOB) scoring enabled. The hyperparameters include \texttt{n\_estimators}=200, \texttt{max\_depth}=12, \texttt{min\_samples\_split}=10, \texttt{min\_samples\_leaf}=4, \texttt{max\_features}='sqrt' (approximately 8 features per split given 66 total features), \texttt{bootstrap}=True, and \texttt{oob\_score}=True. The moderate depth of 12 balances model complexity with overfitting risk, while sqrt feature sampling reduces correlation between trees. The OOB score provides validation capability without requiring a separate validation set. Feature importance is computed using mean decrease in impurity (Gini importance).
 
 \subsection{XGBoost}
 
-\textbf{Architecture:}
-\begin{itemize}
-    \item Gradient boosting framework with tree learners
-    \item Sequential tree building with gradient optimization
-    \item Built-in regularization (L1 and L2)
-\end{itemize}
-
-\textbf{Hyperparameters:}
-\begin{itemize}
-    \item \texttt{n\_estimators}: 300
-    \item \texttt{max\_depth}: 4
-    \item \texttt{learning\_rate}: 0.08
-    \item \texttt{subsample}: 0.85 (row sampling)
-    \item \texttt{colsample\_bytree}: 0.85 (feature sampling)
-    \item \texttt{min\_child\_weight}: 3
-    \item \texttt{gamma}: 0.1 (minimum loss reduction)
-    \item \texttt{reg\_alpha}: 0.05 (L1 regularization)
-    \item \texttt{reg\_lambda}: 1.5 (L2 regularization)
-\end{itemize}
-
-\textbf{Rationale:}
-\begin{itemize}
-    \item Moderate depth (4) prevents overfitting on limited samples
-    \item Lower learning rate (0.08) improves generalization
-    \item Dual regularization (L1 + L2) controls model complexity
-    \item Feature and row sampling provide additional regularization
-\end{itemize}
-
-\textbf{Training:}
-\begin{itemize}
-    \item Early stopping on validation set (if supported by API)
-    \item Evaluation metric: RMSE on log-transformed target
-\end{itemize}
-
-\textbf{Feature Importance:} Gain-based importance (average improvement in loss function)
+XGBoost utilizes a gradient boosting framework with tree learners, employing sequential tree building with gradient optimization and built-in L1 and L2 regularization. The hyperparameters include \texttt{n\_estimators}=300, \texttt{max\_depth}=4, \texttt{learning\_rate}=0.08, \texttt{subsample}=0.85 for row sampling, \texttt{colsample\_bytree}=0.85 for feature sampling, \texttt{min\_child\_weight}=3, \texttt{gamma}=0.1 for minimum loss reduction, \texttt{reg\_alpha}=0.05 for L1 regularization, and \texttt{reg\_lambda}=1.5 for L2 regularization. The moderate depth of 4 prevents overfitting on limited samples, while the lower learning rate of 0.08 improves generalization. Dual regularization (L1 + L2) combined with feature and row sampling provides additional regularization to control model complexity. Training employs early stopping on the validation set when supported by the API, with RMSE on the log-transformed target as the evaluation metric. Feature importance is computed using gain-based importance, representing the average improvement in the loss function.
 
 \subsection{LightGBM}
 
-\textbf{Architecture:}
-\begin{itemize}
-    \item Gradient boosting with leaf-wise tree growth
-    \item Optimized for speed and memory efficiency
-    \item Histogram-based algorithm for faster training
-\end{itemize}
-
-\textbf{Hyperparameters:}
-\begin{itemize}
-    \item \texttt{n\_estimators}: 400
-    \item \texttt{max\_depth}: 5
-    \item \texttt{learning\_rate}: 0.06
-    \item \texttt{num\_leaves}: 31
-    \item \texttt{subsample}: 0.85
-    \item \texttt{colsample\_bytree}: 0.85
-    \item \texttt{min\_child\_samples}: 20
-    \item \texttt{reg\_alpha}: 0.05 (L1 regularization)
-    \item \texttt{reg\_lambda}: 1.5 (L2 regularization)
-\end{itemize}
-
-\textbf{Rationale:}
-\begin{itemize}
-    \item Leaf-wise growth allows deeper trees (max\_depth=5) while maintaining efficiency
-    \item Lower learning rate (0.06) with more estimators (400) improves convergence
-    \item Similar regularization strategy to XGBoost
-    \item Histogram algorithm enables faster training on large datasets
-\end{itemize}
-
-\textbf{Training:}
-\begin{itemize}
-    \item Early stopping with patience=50 rounds
-    \item Callbacks: early stopping and log evaluation
-    \item Best iteration typically: 397/400
-\end{itemize}
-
-\textbf{Feature Importance:} Split-based importance (number of times feature used for splitting)
+LightGBM employs gradient boosting with leaf-wise tree growth, optimized for speed and memory efficiency through a histogram-based algorithm for faster training. The hyperparameters include \texttt{n\_estimators}=400, \texttt{max\_depth}=5, \texttt{learning\_rate}=0.06, \texttt{num\_leaves}=31, \texttt{subsample}=0.85, \texttt{colsample\_bytree}=0.85, \texttt{min\_child\_samples}=20, \texttt{reg\_alpha}=0.05 for L1 regularization, and \texttt{reg\_lambda}=1.5 for L2 regularization. Leaf-wise growth allows deeper trees (max\_depth=5) while maintaining efficiency, and the lower learning rate of 0.06 combined with more estimators (400) improves convergence. The model follows a similar regularization strategy to XGBoost, while the histogram algorithm enables faster training on large datasets. Training employs early stopping with patience=50 rounds, utilizing callbacks for early stopping and log evaluation, with the best iteration typically occurring at 397 out of 400 estimators. Feature importance is computed using split-based importance, which counts the number of times each feature is used for splitting.
 
 \subsection{TabNet}
 
-\textbf{Architecture:}
-\begin{itemize}
-    \item Deep learning architecture designed for tabular data
-    \item Attention mechanism for feature selection
-    \item Sequential attention transformers
-\end{itemize}
-
-\textbf{Hyperparameters:}
-\begin{itemize}
-    \item \texttt{n\_d}: 32 (dimension of decision embedding)
-    \item \texttt{n\_a}: 32 (dimension of attention embedding)
-    \item \texttt{n\_steps}: 6 (number of steps in encoder)
-    \item \texttt{gamma}: 1.3 (feature reusage coefficient)
-    \item \texttt{n\_independent}: 2 (independent GLUs per step)
-    \item \texttt{n\_shared}: 2 (shared GLUs per step)
-    \item \texttt{lambda\_sparse}: 1e-3 (sparsity regularization)
-    \item \texttt{optimizer}: Adam with \texttt{lr}: 1.5e-2
-    \item \texttt{scheduler}: StepLR with step\_size=15, gamma=0.85
-    \item \texttt{mask\_type}: 'entmax'
-\end{itemize}
-
-\textbf{Training Configuration:}
-\begin{itemize}
-    \item \texttt{max\_epochs}: 150
-    \item \texttt{patience}: 25 (early stopping)
-    \item \texttt{batch\_size}: 512
-    \item \texttt{virtual\_batch\_size}: 128
-    \item \texttt{compute\_importance}: False (disabled to avoid dtype issues)
-\end{itemize}
-
-\textbf{Data Preprocessing:}
-\begin{itemize}
-    \item Only numeric features selected
-    \item Explicit conversion to float32
-    \item NaN values filled with 0
-    \item Target reshaped to (n\_samples, 1) for TabNet format
-\end{itemize}
+TabNet employs a deep learning architecture specifically designed for tabular data, utilizing an attention mechanism for feature selection through sequential attention transformers. The hyperparameters include \texttt{n\_d}=32 for the dimension of decision embedding, \texttt{n\_a}=32 for the dimension of attention embedding, \texttt{n\_steps}=6 for the number of steps in the encoder, \texttt{gamma}=1.3 for the feature reusage coefficient, \texttt{n\_independent}=2 for independent GLUs per step, \texttt{n\_shared}=2 for shared GLUs per step, \texttt{lambda\_sparse}=1e-3 for sparsity regularization, \texttt{optimizer}=Adam with learning rate 1.5e-2, \texttt{scheduler}=StepLR with step\_size=15 and gamma=0.85, and \texttt{mask\_type}='entmax'. Training configuration employs \texttt{max\_epochs}=150, \texttt{patience}=25 for early stopping, \texttt{batch\_size}=512, \texttt{virtual\_batch\_size}=128, and \texttt{compute\_importance}=False (disabled to avoid dtype issues). Data preprocessing involves selecting only numeric features, explicit conversion to float32, filling NaN values with 0, and reshaping the target to (n\_samples, 1) format required by TabNet.
 
 \subsection{Temporal Neural Network (LSTM)}
 
-\textbf{Architecture:}
-\begin{itemize}
-    \item Sequential model with LSTM layers
-    \item Designed for sequential/temporal pattern recognition
-\end{itemize}
-
-\textbf{Layer Structure:}
-\begin{itemize}
-    \item Input shape: (1, 62 features) - treating each sample as single timestep
-    \item LSTM layer 1: 128 units
-    \item Dropout: 0.3
-    \item BatchNormalization
-    \item LSTM layer 2: 64 units
-    \item Dropout: 0.3
-    \item Dense layer: 32 units
-    \item Output layer: 1 unit
-\end{itemize}
-
-\textbf{Hyperparameters:}
-\begin{itemize}
-    \item \texttt{optimizer}: Adam with learning\_rate=0.001
-    \item \texttt{loss}: Mean Squared Error (MSE)
-    \item \texttt{metrics}: Mean Absolute Error (MAE)
-\end{itemize}
-
-\textbf{Training Configuration:}
-\begin{itemize}
-    \item \texttt{epochs}: 100
-    \item \texttt{batch\_size}: 256
-    \item \texttt{validation\_split}: Test set used for validation
-    \item \texttt{callbacks}: EarlyStopping (patience=15), ReduceLROnPlateau (patience=5, factor=0.5)
-\end{itemize}
+The Temporal Neural Network employs a sequential model with LSTM layers designed for sequential and temporal pattern recognition. The layer structure consists of an input shape of (1, 62 features), treating each sample as a single timestep, followed by the first LSTM layer with 128 units, dropout of 0.3, batch normalization, a second LSTM layer with 64 units, dropout of 0.3, a dense layer with 32 units, and an output layer with 1 unit. The model utilizes Adam optimizer with learning\_rate=0.001, Mean Squared Error (MSE) as the loss function, and Mean Absolute Error (MAE) as the evaluation metric. Training configuration includes 100 epochs, batch\_size=256, with the test set used for validation, and callbacks including EarlyStopping with patience=15 and ReduceLROnPlateau with patience=5 and factor=0.5.
 
 \subsection{Temporal Convolutional Network (TCN)}
 
-\textbf{Architecture:}
-\begin{itemize}
-    \item Flattened input approach for tabular data
-    \item Dense layers with L2 regularization
-    \item Progressive capacity reduction: 512 → 256 → 128 → 64 → 1
-\end{itemize}
+The Temporal Convolutional Network employs a flattened input approach for tabular data, utilizing dense layers with L2 regularization and progressive capacity reduction from 512 to 256 to 128 to 64 to 1 unit. The layer structure begins with an input layer that flattens (1, num\_features) to reshape and use all features, followed by four dense blocks: the first with 512 units, L2 regularization=0.001, and Dropout=0.4; the second with 256 units, L2 reg=0.001, and Dropout=0.4; the third with 128 units, L2 reg=0.001, and Dropout=0.3; and the fourth with 64 units, L2 reg=0.001, and Dropout=0.2. Each dense block is followed by batch normalization, with the final output layer containing 1 unit. The model uses Adam optimizer with learning\_rate=0.0005 (reduced from 0.001), MSE as the loss function, and MAE as the evaluation metric. Training configuration includes 150 epochs, batch\_size=256, and callbacks with EarlyStopping (patience=20, min\_delta=0.0001) and ReduceLROnPlateau (patience=7, factor=0.5).
 
-\textbf{Layer Structure:}
-\begin{itemize}
-    \item Input: Flatten(1, num\_features) - reshapes to use all features
-    \item Dense block 1: 512 units, L2 reg=0.001, Dropout=0.4
-    \item BatchNormalization
-    \item Dense block 2: 256 units, L2 reg=0.001, Dropout=0.4
-    \item BatchNormalization
-    \item Dense block 3: 128 units, L2 reg=0.001, Dropout=0.3
-    \item BatchNormalization
-    \item Dense block 4: 64 units, L2 reg=0.001, Dropout=0.2
-    \item Output: 1 unit
-\end{itemize}
-
-\textbf{Hyperparameters:}
-\begin{itemize}
-    \item \texttt{optimizer}: Adam with learning\_rate=0.0005 (reduced from 0.001)
-    \item \texttt{loss}: MSE
-    \item \texttt{metrics}: MAE
-\end{itemize}
-
-\textbf{Training Configuration:}
-\begin{itemize}
-    \item \texttt{epochs}: 150
-    \item \texttt{batch\_size}: 256
-    \item \texttt{callbacks}: EarlyStopping (patience=20, min\_delta=0.0001), ReduceLROnPlateau (patience=7, factor=0.5)
-\end{itemize}
-
-\textbf{Improvements Made:}
-\begin{itemize}
-    \item Changed from Conv1D with kernel\_size=1 to dense architecture
-    \item Added L2 regularization to prevent overfitting
-    \item Lowered learning rate for stable training
-    \item Progressive capacity reduction for better generalization
-\end{itemize}
+Improvements made to the TCN architecture include changing from Conv1D with kernel\_size=1 to a dense architecture, adding L2 regularization to prevent overfitting, lowering the learning rate for stable training, and implementing progressive capacity reduction for better generalization.
 
 \section{Benchmark Results and Analysis}
 
 \subsection{Overall Performance Comparison}
 
-Model performance was evaluated on the test set (years 2020-2022) using metrics computed on the original scale. Two experimental configurations were tested: (1) Full feature set including \texttt{corn\_acres\_planted} (66 features), and (2) Excluding \texttt{corn\_acres\_planted} to assess the contribution of other features (65 features). Results are presented in Table \ref{tab:performance} and Table \ref{tab:performance_noacres}.
+Model performance was evaluated on the test set (years 2020-2022) using metrics computed on the original scale. Two experimental configurations were tested: (1) Full feature set including \texttt{corn\_acres\_planted} (66 features), and (2) Excluding \texttt{corn\_acres\_planted} to assess the contribution of other features (65 features). Results are presented in \reftab{tab:performance} and \reftab{tab:performance_noacres}.
 
-\begin{table}[h]
+\begin{table}[htb]
 \centering
+\small
 \caption{Model Performance Comparison - With \texttt{corn\_acres\_planted} (66 Features)}
 \label{tab:performance}
 \begin{tabular}{lcccc}
@@ -995,8 +720,9 @@ TCN & -0.3718 & 21,092,452 & 13,910,562 & 74.08 \\
 \end{tabular}
 \end{table}
 
-\begin{table}[h]
+\begin{table}[htb]
 \centering
+\small
 \caption{Model Performance Comparison - Without \texttt{corn\_acres\_planted} (65 Features)}
 \label{tab:performance_noacres}
 \begin{tabular}{lcccc}
@@ -1015,13 +741,7 @@ TCN & -0.4523 & 22,456,789 & 14,892,456 & 81.23 \\
 \end{tabular}
 \end{table}
 
-\textbf{Key Observations:}
-\begin{itemize}
-    \item \textbf{Performance Degradation}: Excluding \texttt{corn\_acres\_planted} results in R² decrease of 1.5\% (LightGBM: 0.9930 → 0.9780) and RMSE increase of 89.5\% (1,137,001 → 2,154,832 bushels)
-    \item \textbf{Relative Model Rankings Preserved}: Gradient boosting methods (LightGBM, XGBoost) remain superior across both configurations
-    \item \textbf{Robust Performance}: Models maintain strong predictive capability (R² > 0.97 for top models) even without the most important feature
-    \item \textbf{Feature Redundancy}: Other features (fuel\_cost\_proxy, yield\_per\_acre, economic indicators) compensate for the removed feature
-\end{itemize}
+Key observations from the performance comparison reveal that excluding \texttt{corn\_acres\_planted} results in a performance degradation with R² decrease of 1.5\% (LightGBM: 0.9930 → 0.9780) and RMSE increase of 89.5\% (1,137,001 → 2,154,832 bushels). However, relative model rankings are preserved, with gradient boosting methods (LightGBM and XGBoost) remaining superior across both configurations. The models demonstrate robust performance, maintaining strong predictive capability (R² > 0.97 for top models) even without the most important feature. This robustness stems from feature redundancy, where other features such as \texttt{fuel\_cost\_proxy}, \texttt{yield\_per\_acre}, and economic indicators compensate for the removed feature.
 
 \subsection{Why LightGBM Performs Best}
 
@@ -1029,262 +749,47 @@ LightGBM achieved the highest R² score (0.9930) and lowest RMSE (1,137,001 bush
 
 \subsubsection{Algorithmic Advantages}
 
-\textbf{1. Leaf-Wise Tree Growth:}
-\begin{itemize}
-    \item LightGBM uses leaf-wise (best-first) tree building instead of level-wise
-    \item Allows deeper trees while maintaining efficiency
-    \item Better captures complex interactions between the 66 features
-    \item More efficient memory usage enables deeper trees (max\_depth=5 vs XGBoost's 4)
-\end{itemize}
-
-\textbf{2. Histogram-Based Algorithm:}
-\begin{itemize}
-    \item Faster training through histogram approximation
-    \item Enables more estimators (400 vs XGBoost's 300) in similar time
-    \item Better gradient approximation for continuous features
-\end{itemize}
-
-\textbf{3. Optimal Regularization Balance:}
-\begin{itemize}
-    \item L1 regularization (reg\_alpha=0.05): Feature selection through sparsity
-    \item L2 regularization (reg\_lambda=1.5): Smooths predictions
-    \item Dual regularization prevents overfitting while maintaining flexibility
-    \item Subsampling (0.85) provides additional regularization
-\end{itemize}
-
-\textbf{4. Learning Rate and Estimator Count:}
-\begin{itemize}
-    \item Lower learning rate (0.06) with more estimators (400) allows fine-grained optimization
-    \item Better convergence to optimal solution
-    \item Early stopping at iteration 397 prevents overfitting
-\end{itemize}
+LightGBM's superior performance stems from several algorithmic advantages. First, leaf-wise (best-first) tree building, as opposed to level-wise growth, allows deeper trees while maintaining efficiency, enabling better capture of complex interactions between the 66 features. More efficient memory usage enables deeper trees (max\_depth=5 vs XGBoost's 4). Second, the histogram-based algorithm enables faster training through histogram approximation, allowing more estimators (400 vs XGBoost's 300) in similar time with better gradient approximation for continuous features. Third, an optimal regularization balance is achieved through L1 regularization (reg\_alpha=0.05) for feature selection via sparsity, L2 regularization (reg\_lambda=1.5) for smoothing predictions, and dual regularization preventing overfitting while maintaining flexibility. Subsampling (0.85) provides additional regularization. Fourth, the lower learning rate (0.06) combined with more estimators (400) allows fine-grained optimization and better convergence to the optimal solution, with early stopping at iteration 397 preventing overfitting.
 
 \subsubsection{Dataset Characteristics Favoring LightGBM}
 
-\textbf{1. Tabular Data Structure:}
-\begin{itemize}
-    \item 66 engineered features with mixed types (continuous, encoded categoricals)
-    \item LightGBM excels at tabular data with feature interactions
-    \item Efficient handling of sparse features (one-hot encoded ethanol distance)
-\end{itemize}
-
-\textbf{2. Feature Interactions:}
-\begin{itemize}
-    \item Multiple engineered interaction features (precipitation × evaporation, temperature averages)
-    \item LightGBM's tree structure naturally captures interactions
-    \item Better than linear models (Polynomial, SVM) at non-linear interactions
-\end{itemize}
-
-\textbf{3. Moderate Dataset Size:}
-\begin{itemize}
-    \item Training set: 10,409 samples - ideal for gradient boosting
-    \item Large enough for complex models, not too large for deep learning benefits
-    \item Histogram algorithm provides speed advantage over XGBoost
-\end{itemize}
+Several dataset characteristics favor LightGBM's architecture. The tabular data structure with 66 engineered features of mixed types (continuous and encoded categoricals) aligns perfectly with LightGBM's strengths in tabular data with feature interactions, and the model efficiently handles sparse features such as one-hot encoded ethanol distance. Multiple engineered interaction features (precipitation × evaporation, temperature averages) are naturally captured by LightGBM's tree structure, outperforming linear models (Polynomial, SVM) at non-linear interactions. The moderate dataset size of 10,409 training samples is ideal for gradient boosting—large enough for complex models but not too large for deep learning benefits—and the histogram algorithm provides a speed advantage over XGBoost.
 
 \subsection{Model-by-Model Analysis}
 
 \subsubsection{XGBoost}
 
-\textbf{Performance:} R² = 0.9910, RMSE = 1,288,613 bushels
-
-\textbf{Strengths:}
-\begin{itemize}
-    \item Excellent performance, second only to LightGBM
-    \item Robust regularization prevents overfitting
-    \item Proven track record on tabular data
-    \item Good feature importance interpretation
-\end{itemize}
-
-\textbf{Weaknesses:}
-\begin{itemize}
-    \item Slightly slower training than LightGBM
-    \item Level-wise tree growth less efficient than leaf-wise
-    \item Marginally lower performance (0.9920\% lower R²)
-\end{itemize}
-
-\textbf{Why Not Best:} LightGBM's leaf-wise growth and histogram algorithm provide marginal but consistent performance advantage, especially with more estimators enabled by faster training.
+XGBoost achieved R² = 0.9910 and RMSE = 1,288,613 bushels, demonstrating excellent performance second only to LightGBM. Its strengths include robust regularization that prevents overfitting, a proven track record on tabular data, and good feature importance interpretation. Weaknesses include slightly slower training than LightGBM, level-wise tree growth that is less efficient than leaf-wise growth, and marginally lower performance (0.9920\% lower R²). LightGBM's leaf-wise growth and histogram algorithm provide marginal but consistent performance advantage, especially with more estimators enabled by faster training.
 
 \subsubsection{TabNet}
 
-\textbf{Performance:} R² = 0.9599, RMSE = 2,719,162 bushels
-
-\textbf{Strengths:}
-\begin{itemize}
-    \item Strong deep learning performance
-    \item Attention mechanism provides interpretability
-    \item Captures complex non-linear patterns
-    \item Good generalization despite lower R²
-\end{itemize}
-
-\textbf{Weaknesses:}
-\begin{itemize}
-    \item Underperforms gradient boosting by $\sim$3.3\% R²
-    \item Requires more hyperparameter tuning
-    \item Longer training time
-    \item Feature importance computation disabled (dtype issues)
-\end{itemize}
-
-\textbf{Why Not Best:}
-\begin{itemize}
-    \item Dataset size (10,409 samples) may not fully leverage deep learning advantages
-    \item Tree-based methods excel at tabular data with engineered features
-    \item Attention mechanism may not be necessary when feature engineering already captures interactions
-    \item Gradient boosting's iterative refinement better suited for this problem
-\end{itemize}
+TabNet achieved R² = 0.9599 and RMSE = 2,719,162 bushels. Its strengths include strong deep learning performance, an attention mechanism that provides interpretability, ability to capture complex non-linear patterns, and good generalization despite lower R². However, it underperforms gradient boosting by approximately 3.3\% R², requires more hyperparameter tuning, has longer training time, and feature importance computation was disabled due to dtype issues. The dataset size (10,409 samples) may not fully leverage deep learning advantages, and tree-based methods excel at tabular data with engineered features. The attention mechanism may not be necessary when feature engineering already captures interactions, and gradient boosting's iterative refinement is better suited for this problem.
 
 \subsubsection{Random Forest}
 
-\textbf{Performance:} R² = 0.9563, RMSE = 2,839,874 bushels
-
-\textbf{Strengths:}
-\begin{itemize}
-    \item Excellent interpretability through feature importance
-    \item Robust to outliers and missing values
-    \item Good baseline performance
-    \item Fast training
-\end{itemize}
-
-\textbf{Weaknesses:}
-\begin{itemize}
-    \item Underperforms gradient boosting by $\sim$3.7\% R²
-    \item Less effective at capturing complex interactions
-    \item Independent trees don't learn from previous errors
-    \item Higher RMSE than gradient boosting methods
-\end{itemize}
-
-\textbf{Why Not Best:}
-\begin{itemize}
-    \item Bagging (Random Forest) vs Boosting (LightGBM/XGBoost) difference
-    \item Boosting sequentially corrects errors, improving with each iteration
-    \item Random Forest averages independent predictions, missing sequential refinement
-    \item Gradient boosting's objective optimization better for regression tasks
-\end{itemize}
+Random Forest achieved R² = 0.9563 and RMSE = 2,839,874 bushels. Its strengths include excellent interpretability through feature importance, robustness to outliers and missing values, good baseline performance, and fast training. However, it underperforms gradient boosting by approximately 3.7\% R², is less effective at capturing complex interactions, has independent trees that don't learn from previous errors, and exhibits higher RMSE than gradient boosting methods. The fundamental difference lies in bagging (Random Forest) versus boosting (LightGBM/XGBoost), where boosting sequentially corrects errors and improves with each iteration, while Random Forest averages independent predictions, missing sequential refinement. Gradient boosting's objective optimization is better suited for regression tasks.
 
 \subsubsection{Polynomial Regression}
 
-\textbf{Performance:} R² = 0.8840, RMSE = 4,626,776 bushels
-
-\textbf{Strengths:}
-\begin{itemize}
-    \item Simple and interpretable
-    \item Fast training
-    \item Low computational cost
-    \item Captures quadratic relationships
-\end{itemize}
-
-\textbf{Weaknesses:}
-\begin{itemize}
-    \item Limited to polynomial relationships (degree 2)
-    \item Cannot capture complex non-linear patterns
-    \item Even with interactions, limited expressiveness
-    \item Higher RMSE than tree-based methods
-\end{itemize}
-
-\textbf{Why Not Best:}
-\begin{itemize}
-    \item Fixed functional form (polynomial) cannot adapt to data structure
-    \item Tree-based methods learn optimal splits from data
-    \item Cannot capture threshold effects and conditional interactions
-    \item Regularization (Ridge) constrains flexibility
-\end{itemize}
+Polynomial Regression achieved R² = 0.8840 and RMSE = 4,626,776 bushels. Its strengths include simplicity and interpretability, fast training, low computational cost, and ability to capture quadratic relationships. However, it is limited to polynomial relationships (degree 2), cannot capture complex non-linear patterns, has limited expressiveness even with interactions, and exhibits higher RMSE than tree-based methods. The fixed functional form (polynomial) cannot adapt to data structure, unlike tree-based methods that learn optimal splits from data. Additionally, it cannot capture threshold effects and conditional interactions, and regularization (Ridge) constrains flexibility.
 
 \subsubsection{Support Vector Machine (SVM)}
 
-\textbf{Performance:} R² = 0.9104, RMSE = 4,067,153 bushels
-
-\textbf{Strengths:}
-\begin{itemize}
-    \item Good non-linear pattern capture with RBF kernel
-    \item Effective regularization through C parameter
-    \item Robust to outliers (epsilon-tube)
-\end{itemize}
-
-\textbf{Weaknesses:}
-\begin{itemize}
-    \item Computational limitations require subset training (5,000 samples)
-    \item Cannot leverage full training set (10,409 samples)
-    \item Memory-intensive for large datasets
-    \item Slower than tree-based methods
-\end{itemize}
-
-\textbf{Why Not Best:}
-\begin{itemize}
-    \item Limited training data (only 48\% of available training set)
-    \item RBF kernel may not be optimal for tabular data structure
-    \item Cannot scale to full dataset size
-    \item Tree-based methods better at discrete feature interactions
-\end{itemize}
+The Support Vector Machine achieved R² = 0.9104 and RMSE = 4,067,153 bushels. Its strengths include good non-linear pattern capture with RBF kernel, effective regularization through C parameter, and robustness to outliers (epsilon-tube). However, computational limitations require subset training (5,000 samples), preventing leverage of the full training set (10,409 samples). The model is memory-intensive for large datasets and slower than tree-based methods. The limited training data (only 48\% of available training set), potentially suboptimal RBF kernel for tabular data structure, inability to scale to full dataset size, and tree-based methods' superior handling of discrete feature interactions explain why it does not achieve best performance.
 
 \subsubsection{Temporal Neural Network (LSTM)}
 
-\textbf{Performance:} R² = 0.8602, RMSE = 5,079,808 bushels
-
-\textbf{Strengths:}
-\begin{itemize}
-    \item Designed for sequential/temporal patterns
-    \item Can capture long-term dependencies
-    \item Non-linear transformations through LSTM cells
-\end{itemize}
-
-\textbf{Weaknesses:}
-\begin{itemize}
-    \item Underperforms compared to tree-based methods
-    \item Sequence length of 1 (each sample as single timestep) not ideal for LSTM
-    \item Requires careful hyperparameter tuning
-    \item Longer training time
-\end{itemize}
-
-\textbf{Why Not Best:}
-\begin{itemize}
-    \item LSTM designed for sequences, but data treated as single timestep per sample
-    \item No true temporal sequences - each row is independent
-    \item Tree-based methods better for independent samples with rich feature sets
-    \item Limited training data for deep learning benefits
-\end{itemize}
+The Temporal Neural Network (LSTM) achieved R² = 0.8602 and RMSE = 5,079,808 bushels. While designed for sequential/temporal patterns with ability to capture long-term dependencies through non-linear transformations in LSTM cells, it underperforms compared to tree-based methods. The sequence length of 1 (each sample treated as single timestep) is not ideal for LSTM, and the model requires careful hyperparameter tuning with longer training time. The architecture mismatch—LSTM designed for sequences but data treated as single timestep per sample—means there are no true temporal sequences as each row is independent. Tree-based methods are better suited for independent samples with rich feature sets, and limited training data restricts deep learning benefits.
 
 \subsubsection{Temporal Convolutional Network (TCN)}
 
-\textbf{Performance:} R² = -0.3718, RMSE = 21,092,452 bushels
-
-\textbf{Strengths:}
-\begin{itemize}
-    \item Architecture improved from initial CNN implementation
-    \item L2 regularization and progressive capacity reduction
-    \item Better than initial negative R² results
-\end{itemize}
-
-\textbf{Weaknesses:}
-\begin{itemize}
-    \item Still underperforming (negative R² indicates worse than baseline)
-    \item Numerical instability in some training runs
-    \item Architecture may still need refinement
-    \item High RMSE suggests poor predictions
-\end{itemize}
-
-\textbf{Why Not Best:}
-\begin{itemize}
-    \item Negative R² indicates model predictions worse than simply predicting mean
-    \item Architecture mismatch: TCN designed for temporal sequences, but data lacks true temporal structure
-    \item Overfitting despite regularization
-    \item Learning rate and architecture need further tuning
-    \item Deep learning models typically need more data or different architecture for this problem
-\end{itemize}
+The Temporal Convolutional Network (TCN) achieved R² = -0.3718 and RMSE = 21,092,452 bushels. While the architecture was improved from the initial CNN implementation with L2 regularization and progressive capacity reduction, resulting in better than initial negative R² results, it still underperforms significantly. The negative R² indicates model predictions worse than simply predicting the mean, with numerical instability in some training runs, architecture that may still need refinement, and high RMSE suggesting poor predictions. The architecture mismatch—TCN designed for temporal sequences but data lacks true temporal structure—combined with overfitting despite regularization, indicates that learning rate and architecture need further tuning. Deep learning models typically need more data or different architecture for this problem.
 
 \subsection{Key Findings}
 
 \subsubsection{Gradient Boosting Dominance}
 
-Both LightGBM and XGBoost achieved R² > 0.99, significantly outperforming all other approaches:
-
-\begin{itemize}
-    \item LightGBM: 0.9930 R²
-    \item XGBoost: 0.9910 R²
-    \item Gap to third place (TabNet): $\sim$3.3\% R²
-    \item Gap to Random Forest: $\sim$3.7\% R²
-\end{itemize}
-
-This demonstrates that gradient boosting is the optimal approach for this multi-source tabular regression task.
+Both LightGBM and XGBoost achieved R² > 0.99, significantly outperforming all other approaches, with LightGBM achieving 0.9930 R² and XGBoost achieving 0.9910 R². The gap to third place (TabNet) is approximately 3.3\% R², and the gap to Random Forest is approximately 3.7\% R². This demonstrates that gradient boosting is the optimal approach for this multi-source tabular regression task.
 
 \subsubsection{Feature Importance Insights}
 
@@ -1325,13 +830,7 @@ When \texttt{corn\_acres\_planted} is excluded, feature importance shifts dramat
     \item \texttt{govt\_programs\_federal\_receipts\_usd} (572) - Government support remains important
 \end{enumerate}
 
-\textbf{XGBoost Feature Importance Changes:}
-\begin{itemize}
-    \item \texttt{fuel\_cost\_proxy}: 20.3\% → \textbf{66.1\%} (3.25× increase)
-    \item \texttt{yield\_per\_acre}: 4.3\% → \textbf{10.2\%} (2.37× increase)
-    \item \texttt{total\_revenue\_sources}: 7.5\% → \textbf{8.6\%} (slight increase)
-    \item \texttt{RootMoist\_inst}: 0.16\% → \textbf{3.7\%} (23× increase) - environmental variables gain importance
-\end{itemize}
+XGBoost feature importance changes demonstrate significant shifts: \texttt{fuel\_cost\_proxy} increases from 20.3\% to 66.1\% (3.25× increase), \texttt{yield\_per\_acre} increases from 4.3\% to 10.2\% (2.37× increase), \texttt{total\_revenue\_sources} shows a slight increase from 7.5\% to 8.6\%, and \texttt{RootMoist\_inst} dramatically increases from 0.16\% to 3.7\% (23× increase), indicating that environmental variables gain importance when agricultural context features are removed.
 
 \paragraph{Why \texttt{fuel\_cost\_proxy} Becomes Most Important}
 
@@ -1432,69 +931,35 @@ When \texttt{corn\_acres\_planted} is removed, \texttt{fuel\_cost\_proxy} (defin
 
 \subsubsection{Model Complexity vs Performance}
 
-\begin{itemize}
-    \item \textbf{Low Complexity:} Polynomial (0.8840), SVM (0.9104) - Adequate but not optimal
-    \item \textbf{Medium Complexity:} LightGBM (0.9930), XGBoost (0.9910) - Optimal performance
-    \item \textbf{High Complexity:} TabNet (0.9599), LSTM (0.8602), TCN (-0.3718) - Diminishing returns
-\end{itemize}
-
-This suggests that for this dataset size and structure, medium-complexity gradient boosting provides optimal balance between performance and complexity.
+Analysis of model complexity versus performance reveals distinct patterns across complexity levels. Low complexity models (Polynomial with R² 0.8840, SVM with R² 0.9104) provide adequate but not optimal performance. Medium complexity models (LightGBM with R² 0.9930, XGBoost with R² 0.9910) achieve optimal performance. High complexity models (TabNet with R² 0.9599, LSTM with R² 0.8602, TCN with R² -0.3718) exhibit diminishing returns. This suggests that for this dataset size and structure, medium-complexity gradient boosting provides optimal balance between performance and complexity.
 
 \subsection{Recommendations}
 
 \subsubsection{For Production Deployment}
 
-\begin{enumerate}
-    \item \textbf{Primary Model:} Deploy LightGBM given superior R² (0.9930) and lowest RMSE
-    \item \textbf{Ensemble Approach:} Consider averaging LightGBM and XGBoost predictions for robustness
-    \item \textbf{Feature Monitoring:} Prioritize monitoring of top features (acres planted, yield per acre, economic indicators)
-    \item \textbf{Periodic Retraining:} Retrain models annually as new data becomes available
-\end{enumerate}
+For production deployment, we recommend deploying LightGBM as the primary model given its superior R² (0.9930) and lowest RMSE. An ensemble approach averaging LightGBM and XGBoost predictions should be considered for robustness. Feature monitoring should prioritize top features including acres planted, yield per acre, and economic indicators. Models should be retrained annually as new data becomes available to maintain performance and adapt to changing patterns.
 
 \subsubsection{For Future Research}
 
-\begin{enumerate}
-    \item Explore ensemble methods combining LightGBM with XGBoost
-    \item Investigate stacking or blending approaches
-    \item Expand to other crops (soybeans, wheat) using same methodology
-    \item Incorporate real-time in-season updates
-    \item Develop uncertainty quantification methods for predictions
-\end{enumerate}
+Future research directions include exploring ensemble methods combining LightGBM with XGBoost, investigating stacking or blending approaches, expanding to other crops (soybeans, wheat) using the same methodology, incorporating real-time in-season updates, and developing uncertainty quantification methods for predictions.
 
 \section{Conclusion}
 
 This comprehensive benchmark study demonstrates that LightGBM achieves superior performance (R² = 0.9930) for predicting county-level corn production using multi-source data. The integration of satellite-derived environmental variables, economic indicators, fuel prices, and PRISM precipitation data, combined with extensive feature engineering (66 features), enables highly accurate predictions explaining 99.30\% of variance.
 
-\textbf{Key Findings:}
-\begin{enumerate}
-    \item \textbf{Gradient Boosting Dominance}: LightGBM and XGBoost (R² > 0.99) significantly outperform all other approaches, establishing gradient boosting as optimal for this tabular regression task
-    \item \textbf{Feature Importance Hierarchy}: Agricultural context (\texttt{corn\_acres\_planted}) dominates (48.2\% importance), followed by economic indicators (\texttt{fuel\_cost\_proxy}, revenue metrics) and environmental variables
-    \item \textbf{Feature Redundancy and Compensation}: When \texttt{corn\_acres\_planted} is excluded, \texttt{fuel\_cost\_proxy} increases to 66.1\% importance, demonstrating models' ability to extract scale information from engineered interactions
-    \item \textbf{Robust Performance}: Models maintain strong predictive capability (R² = 0.9780 for LightGBM) even without the primary feature, revealing compensatory mechanisms through economic and environmental proxies
-    \item \textbf{Medium-Complexity Optimal}: Gradient boosting provides optimal balance between performance and complexity, with diminishing returns for high-complexity deep learning models
-    \item \textbf{Feature Engineering Value}: Engineered features (\texttt{fuel\_cost\_proxy}, \texttt{yield\_per\_acre}, \texttt{revenue\_per\_bushel}) create redundancy that improves model robustness
-\end{enumerate}
+Key findings from this study demonstrate gradient boosting dominance, with LightGBM and XGBoost (R² > 0.99) significantly outperforming all other approaches, establishing gradient boosting as optimal for this tabular regression task. The feature importance hierarchy reveals that agricultural context (\texttt{corn\_acres\_planted}) dominates (48.2\% importance), followed by economic indicators (\texttt{fuel\_cost\_proxy}, revenue metrics) and environmental variables. Feature redundancy and compensation mechanisms are evident: when \texttt{corn\_acres\_planted} is excluded, \texttt{fuel\_cost\_proxy} increases to 66.1\% importance, demonstrating models' ability to extract scale information from engineered interactions. Models maintain robust performance, with strong predictive capability (R² = 0.9780 for LightGBM) even without the primary feature, revealing compensatory mechanisms through economic and environmental proxies. Gradient boosting provides optimal balance between performance and complexity, with diminishing returns for high-complexity deep learning models. Engineered features (\texttt{fuel\_cost\_proxy}, \texttt{yield\_per\_acre}, \texttt{revenue\_per\_bushel}) create redundancy that improves model robustness.
 
-\textbf{Methodological Contributions:}
-\begin{itemize}
-    \item Comprehensive benchmark of 8 algorithms across complexity levels (low, medium, high)
-    \item Dual-configuration analysis demonstrating feature redundancy and compensatory mechanisms
-    \item Detailed feature importance analysis explaining why certain features gain prominence when others are removed
-    \item Robust data cleaning and multi-strategy imputation for heterogeneous data sources
-    \item Feature engineering framework creating informative interactions and ratios
-\end{itemize}
+Methodological contributions include a comprehensive benchmark of 8 algorithms across complexity levels (low, medium, high), dual-configuration analysis demonstrating feature redundancy and compensatory mechanisms, detailed feature importance analysis explaining why certain features gain prominence when others are removed, robust data cleaning and multi-strategy imputation for heterogeneous data sources, and a feature engineering framework creating informative interactions and ratios.
 
-\textbf{Practical Implications:}
-\begin{itemize}
-    \item \texttt{fuel\_cost\_proxy} and economic indicators can serve as proxies when \texttt{corn\_acres\_planted} is unavailable
-    \item Environmental variables gain importance in the absence of agricultural context features
-    \item Feature engineering creates valuable redundancy that improves model robustness
-    \item Gradient boosting methods provide optimal balance of performance and efficiency for agricultural yield prediction
-\end{itemize}
+Practical implications indicate that \texttt{fuel\_cost\_proxy} and economic indicators can serve as proxies when \texttt{corn\_acres\_planted} is unavailable. Environmental variables gain importance in the absence of agricultural context features. Feature engineering creates valuable redundancy that improves model robustness, and gradient boosting methods provide optimal balance of performance and efficiency for agricultural yield prediction.
 
 The methodology established in this research provides a robust framework for agricultural yield prediction that can be extended to other crops and regions, contributing to precision agriculture and food security applications. The feature importance analysis provides actionable insights for data collection priorities and model deployment strategies.
 
+% Balance columns before bibliography
+\balance
+
 \begin{thebibliography}{99}
+\small
 
 \bibitem{rodell2004global}
 Rodell, M., et al. (2004). The Global Land Data Assimilation System. \textit{Bulletin of the American Meteorological Society}, 85(3), 381-394.
