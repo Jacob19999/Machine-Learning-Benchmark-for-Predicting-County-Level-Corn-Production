@@ -1,0 +1,127 @@
+VISUAL DESCRIPTION FILE
+========================
+This file contains descriptions of all visualizations in the Visuals folder.
+
+EXPLORATORY DATA ANALYSIS (EDA) VISUALS
+========================================
+
+1. EDA_target_distribution.png
+   Description: Target Variable Distribution Analysis showing four panels:
+   (a) Histogram of corn production showing right skew
+   (b) Box plot revealing outliers
+   (c) Log-transformed distribution showing normalization
+   (d) Q-Q plot confirming approximate normality after log transformation
+   This visualization demonstrates why log transformation is necessary for the target variable.
+
+2. EDA_temporal_analysis.png
+   Description: Temporal Analysis of Corn Production showing four panels:
+   (a) Mean production over time with standard deviation bands
+   (b) Production variance showing increasing variability
+   (c) Number of observations per year
+   (d) Total state production over time
+   This visualization reveals temporal trends and patterns in corn production across the 23-year study period.
+
+3. EDA_correlation_target.png
+   Description: Feature Correlation with Target Variable showing:
+   (a) Top 15 positive correlations with corn production
+   (b) Top 15 negative correlations with corn production
+   This visualization identifies which features are most strongly associated with the target variable.
+
+4. EDA_correlation_heatmap.png
+   Description: Correlation Heatmap for Top 20 Features showing correlation strength between features.
+   Color intensity represents correlation strength, with red indicating positive correlations and blue indicating negative correlations.
+   This visualization reveals feature clusters and multicollinearity patterns.
+
+5. correlation_heatmap.png
+   Description: Alternative correlation heatmap visualization showing relationships between features.
+   Similar to EDA_correlation_heatmap.png but may use different feature selection or visualization style.
+
+6. EDA_PCA_analysis.png
+   Description: PCA Analysis Results showing four panels:
+   (a) Scree plot showing explained variance by component
+   (b) Cumulative explained variance with 90% and 95% thresholds
+   (c) PC1 vs PC2 scatter plot colored by target variable
+   (d) Top 10 feature loadings for PC1 and PC2
+   This visualization demonstrates dimensionality reduction opportunities and principal component interpretation.
+
+7. EDA_KNN_analysis.png
+   Description: K-Nearest Neighbors Visualization showing query points (red stars) and their k nearest neighbors (blue circles) visualized in 2D PCA space.
+   Multiple panels show k = 5, 10, 20, 50 neighbors.
+   Gray points represent all data samples.
+   This visualization reveals data structure and local similarity patterns.
+
+8. EDA_KNN_distances.png
+   Description: Average Distance to k-th Nearest Neighbor showing how neighbor distances increase with k.
+   This indicates data density and local structure in the high-dimensional feature space.
+
+9. EDA_feature_distributions.png
+   Description: Distribution Analysis for Top 12 Features showing histograms of feature distributions with mean and median lines.
+   Features are selected by correlation with target variable or variance.
+   This visualization provides insights into data characteristics across different feature types.
+
+10. EDA_missing_values.png
+    Description: Missing Value Analysis showing the top 10 columns with missing data.
+    Displays the number of missing values per column.
+    This visualization helps identify data completeness issues and guides imputation strategy.
+
+11. EDA_outlier_detection.png
+    Description: Outlier Detection Analysis showing box plots for top 6 features with outliers.
+    Upper and lower bounds (3×IQR) shown as dashed red lines.
+    This visualization identifies extreme values that may require special handling.
+
+12. temporal_analysis.png
+    Description: Alternative temporal analysis visualization showing time-based patterns in the data.
+    May focus on different temporal aspects or use different visualization style than EDA_temporal_analysis.png.
+
+MODEL ANALYSIS VISUALS
+======================
+
+13. Model comparison.png
+    Description: Model Comparison visualization showing performance metrics across different machine learning models.
+    Typically displays R², RMSE, MAE, or other evaluation metrics in bar charts or similar formats.
+
+14. Model Comparison Scatter Plot.png
+    Description: Model Comparison Scatter Plot showing predicted vs actual values for different models.
+    Allows visual comparison of prediction accuracy and error patterns across models.
+
+15. model_comparison_visualization.png
+    Description: Comprehensive model comparison visualization combining multiple performance metrics and visualizations.
+    May include side-by-side comparisons of model predictions, residuals, or performance rankings.
+
+16. model_comparison_bar_plots.png
+    Description: Model Comparison Bar Plots showing performance metrics (R², RMSE, MAE, MAPE) as bar charts for each model.
+    Enables easy comparison of model performance across different metrics.
+
+17. model_comparison_scatter_plots.png
+    Description: Model Comparison Scatter Plots showing predicted vs actual values across multiple models.
+    Each panel typically represents a different model, allowing comparison of prediction quality.
+
+18. model perfromance without planted acers.png
+    Description: Model Performance comparison without the corn_acres_planted feature.
+    Shows how model performance changes when the primary feature is excluded.
+    Displays performance metrics (R², RMSE, etc.) for all models in the reduced feature set configuration.
+
+19. Scattor plot without planted acers.png
+    Description: Scatter plot showing predicted vs actual values for models trained without corn_acres_planted feature.
+    Demonstrates how well models can predict even when the most important feature is excluded.
+
+FEATURE IMPORTANCE VISUALS
+==========================
+
+20. Feature Importance.png
+    Description: Feature Importance visualization showing the relative importance of features for model predictions.
+    Typically displays top features ranked by importance scores from tree-based models (LightGBM, XGBoost, Random Forest).
+
+21. feature importance without planted acers.png
+    Description: Feature Importance visualization when corn_acres_planted is excluded.
+    Shows how feature importance shifts when the primary feature is removed.
+    Demonstrates compensatory mechanisms and alternative predictive pathways.
+
+XGBOOST FINE-TUNING VISUAL
+==========================
+
+22. xgboost_finetuning_analysis.png
+    Description: XGBoost Fine-Tuning Analysis showing hyperparameter optimization results.
+    May include learning curves, parameter sensitivity analysis, or performance metrics across different hyperparameter configurations.
+    Demonstrates the fine-tuning process and optimal parameter selection for XGBoost.
+
