@@ -1,0 +1,96 @@
+{
+  "27129": {
+    "adj_raw": -0.05,
+    "adj": -0.05,
+    "pred_yield_bu_ac": 171.0,
+    "low_80": 152.1,
+    "high_80": 189.9,
+    "drivers": [
+      "Declining available workers (-13.5%)",
+      "Higher unemployment rate (4.0% vs state 2.8%)",
+      "Labor force projected to shrink 2025-2035",
+      "Evidence of domestic out-migration"
+    ]
+  },
+  "27127": {
+    "adj_raw": -0.03,
+    "adj": -0.03,
+    "pred_yield_bu_ac": 174.6,
+    "low_80": 155.3,
+    "high_80": 193.9,
+    "drivers": [
+      "Tight labor market with low jobseekers per vacancy",
+      "Ongoing domestic out-migration",
+      "Limited evidence of severe disruptions"
+    ]
+  },
+  "27091": {
+    "adj_raw": 0.0,
+    "adj": 0.0,
+    "pred_yield_bu_ac": 180.0,
+    "low_80": 160.2,
+    "high_80": 199.8,
+    "drivers": ["Insufficient allowed exogenous signals present"]
+  },
+  "27043": {
+    "adj_raw": 0.0,
+    "adj": 0.0,
+    "pred_yield_bu_ac": 180.0,
+    "low_80": 160.2,
+    "high_80": 199.8,
+    "drivers": ["Insufficient allowed exogenous signals present"]
+  },
+  "27013": {
+    "adj_raw": 0.0,
+    "adj": 0.0,
+    "pred_yield_bu_ac": 180.0,
+    "low_80": 160.2,
+    "high_80": 199.8,
+    "drivers": ["Insufficient allowed exogenous signals present"]
+  },
+  "27047": {
+    "adj_raw": 0.0,
+    "adj": 0.0,
+    "pred_yield_bu_ac": 180.0,
+    "low_80": 160.2,
+    "high_80": 199.8,
+    "drivers": ["Insufficient allowed exogenous signals present"]
+  },
+  "27105": {
+    "adj_raw": 0.0,
+    "adj": 0.0,
+    "pred_yield_bu_ac": 180.0,
+    "low_80": 160.2,
+    "high_80": 199.8,
+    "drivers": ["Insufficient allowed exogenous signals present"]
+  },
+  "27099": {
+    "adj_raw": 0.0,
+    "adj": 0.0,
+    "pred_yield_bu_ac": 180.0,
+    "low_80": 160.2,
+    "high_80": 199.8,
+    "drivers": ["Insufficient allowed exogenous signals present"]
+  },
+  "27063": {
+    "adj_raw": 0.0,
+    "adj": 0.0,
+    "pred_yield_bu_ac": 180.0,
+    "low_80": 160.2,
+    "high_80": 199.8,
+    "drivers": ["Insufficient allowed exogenous signals present"]
+  },
+  "27033": {
+    "adj_raw": -0.07,
+    "adj": -0.07,
+    "pred_yield_bu_ac": 167.4,
+    "low_80": 148.9,
+    "high_80": 185.9,
+    "drivers": [
+      "Sharp labor force decline (-11.2% available workers)",
+      "Higher unemployment (4.7% vs state 2.8%)",
+      "Significant job losses post-pandemic",
+      "Projected continued labor force shrinkage"
+    ]
+  }
+}

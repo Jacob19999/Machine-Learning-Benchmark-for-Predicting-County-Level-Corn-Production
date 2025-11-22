@@ -1,0 +1,1918 @@
+================================================================================
+GROK PROMPT FOR MANUAL UPLOAD
+================================================================================
+
+COUNTY INFORMATION
+--------------------------------------------------------------------------------
+Rank: 56 (of 83 Counties, >= 1,000,000 bushels)
+County: Scott
+FIPS Code: 27139
+Year: 2023
+Total Production (all years): 885,529,449 bushels
+
+ML BASELINE PREDICTION
+--------------------------------------------------------------------------------
+ML Baseline (total): 45,862,780 bushels
+ML Pred (bu/ac): 180.00
+ML Band Width: 36.00
+Train RMSE: 18.00
+P10 (10th percentile): 36,690,224 bushels
+P90 (90th percentile): 55,035,336 bushels
+Uncertainty Interval: [36,690,224, 55,035,336] bushels
+
+RECENT PRODUCTION HISTORY
+--------------------------------------------------------------------------------
+  2022: 45,370,339 bushels
+  2021: 46,711,000 bushels
+  2020: 45,507,000 bushels
+  2019: 0 bushels
+  2018: 0 bushels
+
+================================================================================
+SYSTEM PROMPT (for Grok)
+================================================================================
+
+You are a conservative adjustment module for county-level corn yield.
+
+Your ONLY inputs are a structured "factsheet" with exogenous signals that the ML model does not capture well.
+
+You must ignore agronomic variables already modeled by ML (soils, ethanol distance, historical yields, GLDAS/PRISM windowed indices, USDM, NDVI, etc.).
+
+Goal: Propose a small, bounded multiplicative adjustment to the provided ML baseline prediction based solely on the allowed facts.
+
+Hard constraints
+
+Use only these fields if present:
+
+economy_population, economy_unemployment_rate_pct, economy_available_workers,
+
+economy_required_hourly_wage_single_usd, economy_median_hourly_wage_region_usd,
+
+economy_median_household_income_usd, selected industry wage/size metrics.
+
+market_basis_anomaly_usd, elevator_outage_flag, rail_disruption_flag.
+
+prevented_planting_flag, pp_share_pct, insurance_disaster_flag.
+
+hail_event_flag, derecho_event_flag, localized_flood_flag.
+
+nass_planting_progress_pct, nass_harvest_progress_pct (weekly progress summaries).
+
+ML meta: ml_pred (bu/ac), ml_band_width (U−L), train_rmse.
+
+Forbidden: any soils, ethanol distance, recent yields, or windowed agronomic/drought/canopy variables. If such fields appear, ignore them.
+
+Compute a raw signed adjustment adj_raw in [-1, +1] reflecting only exogenous stress/support.
+
+Negative signals (examples): very high unemployment, severe labor shortages, high required_hourly_wage vs regional median, active logistics disruptions, hail/derecho flags, widespread prevented planting.
+
+Positive signals (examples): strong labor availability with low wage pressure and no disruptions.
+
+The final applied adjustment is bounded and damped by ML confidence:
+
+alpha = 0.15 (max magnitude).
+
+kappa = exp( - ml_band_width / train_rmse ).
+
+adj = clip(adj_raw, -alpha, +alpha) * (1 - kappa).
+
+Calibrated caution: If evidence is mixed or weak, set adj_raw = 0.0. Never exceed the bounds.
+
+Output JSON only with this schema (numbers only, no explanations in prose):
+
+For a SINGLE county:
+{
+  "adj_raw": float,                  // in [-1, 1], before damping
+  "adj": float,                      // after bounds & damping rule above
+  "pred_yield_bu_ac": float,         // = ml_pred * (1 + adj)
+  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj)
+  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj)
+  "drivers": [ "short phrase", ... ] // 3–5 concise drivers referencing ONLY allowed fields
+}
+
+For MULTIPLE counties (differentiated by FIPS):
+{
+  "<fips_code>": {
+    "adj_raw": float,
+    "adj": float,
+    "pred_yield_bu_ac": float,
+    "low_80": float,
+    "high_80": float,
+    "drivers": [ "short phrase", ... ]
+  },
+  "<fips_code>": { ... },
+  ...
+}
+
+No chain-of-thought. Do not explain your reasoning; just fill the JSON.
+
+If required fields are missing (e.g., ml_pred, ml_band_width, train_rmse), return:
+{"adj_raw": 0.0, "adj": 0.0, "pred_yield_bu_ac": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
+
+FIPS codes should be strings (e.g., "27129" not 27129).
+
+================================================================================
+USER PROMPT (for Grok)
+================================================================================
+
+Analyze this corn production factsheet and provide a bounded adjustment to the ML baseline prediction.
+
+County FIPS: 27139
+
+ML Meta:
+- ml_pred (bu/ac): 180.00
+- ml_band_width (U−L): 36.00
+- train_rmse: 18.00
+
+Fact Sheet Information:
+2024 population: 157,206 people
+6,278 people 37.3 years
+4.2% increase state: 38.6 years
+Number Percent
+Under 5 years 9,618 6.1%
+5-14 years 24,100 15.3%
+15-24 years 20,525 13.1%
+25-34 years 18,441 11.7%
+35-44 years 23,223 14.8%
+45-54 years 22,234 14.1%
+55-64 years 19,735 12.6%
+65-74 years 12,275 7.8%
+75-84 years 5,044 3.2%
+85 years & over 2,010 1.3%
+Total Population 157,206 100.0%
+Births Deaths Total
+Scott Co. 6,287 3,346 7,235 3,889 2,876
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 14,778 9.7% 3,412 30.0% 8.6% 24.7%
+Europe 2,202 14.9% 808 58.0% 8.8% -3.4%
+Asia 6,009 40.7% 573 10.5% 35.7% 18.1%
+Africa 2,767 18.7% 1,491 116.8% 28.3% 78.8%
+Oceania 0 0.0% -101 -100.0% 0.4% 5.4%
+Americas: 3,800 25.7% 641 20.3% 26.7% 8.7%
+Latin America 3,466 23.5% 691 24.9% 24.2% 9.7%
+Northern America 334 2.3% -50 -13.0% 2.5% 0.4%Scott Co. enjoyed a natural increase - more births than deaths from 2020 to 2024, but also experienced net in-migration - meaning more 
+people moved in than moved out. In addition to domestic in-migration, Scott Co. welcomed net international in-migration - gaining new 
+Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Scott Co. has a larger percentage of foreign-born residents. From 2013 to 2023, Scott Co. saw an increase in the 
+number of foreign-born residents, which was faster than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Scott Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Scott Co. is a part of Economic Development Region 11, which is located in the Twin 
+Cities Planning Region.Scott Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+1,094
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program1,782
+81,091Scott Co. is the 9th largest of the 87 counties in the state. Its population increased so far this decade, ranking as the 10th fastest growing in 
+the state from 2020 to 2024. Scott Co.'s population has a younger median age than the state and a smaller percentage of people aged 65 
+years and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+8,296
+15,711
+9,927
+14,962
+18,437
+10,760
+5,861
+3,076
+1,825
+6439,618
+24,100
+20,525
+18,441
+23,223
+22,234
+19,735
+12,275
+5,044
+2,010Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+15%
+41% 19%0%
+23%2%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+152,957 100.0% 15.2% 100.0% 6.8%
+120,185 78.6% 4.4% 78.4% -2.2%
+8,017 5.2% 125.8% 6.8% 38.9%
+1,078 0.7% 31.0% 0.9% -11.6%
+ 9,337 6.1% 24.1% 5.1% 29.6%
+4,232 2.8% 110.9% 2.7% 96.1%
+10,108 6.6% 170.7% 6.2% 168.3%
+9,435 6.2% 57.6% 6.2% 37.5%
+Scott Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change159,790    176,504          
+Under 5 years 9,403              10,277              874 9.3%
+5-14 years 21,927            20,944              -983 -4.5%
+15-24 years 21,157            19,936              -1,221 -5.8%
+25-34 years 19,796            24,362              4,566 23.1%
+35-44 years 22,480            25,028              2,548 11.3%
+45-54 years 21,555            22,562              1,007 4.7%
+55-64 years 20,574            20,103              -471 -2.3%
+65-74 years 13,736            18,065              4,329 31.5%
+75-84 years 6,874              11,251              4,377 63.7%
+85 years & over 2,288              3,976                1,688 73.8%
+Total Population 159,790       176,504          16,714 10.5%
+72.1%
+68.8%
+12.7%
+29.0%
+11.5%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Scott Co. has a higher percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a higher 
+percentage of people with at least some college experience. Scott Co. also has a higher percentage of people with an Associate's degree and a 
+higher percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:93.7%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Scott Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Scott Co.'s population is expected to grow from 2025 to 2035, with a rate of change 
+that is faster than the projected statewide growth rate (3.7%). In addition to the overall growth, the number of people aged 65 years and 
+older is expected to increase over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSScott Co.'s population was becoming more racially diverse over time. Since 2013, the white population increased and the number of people of 
+other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Scott Co. Minnesota
+6%
+22%
+19%
+13%29%11%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree78.6%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 20,000 40,000 60,000 80,000 100,000 120,000 140,000 160,000 180,000 200,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+90,354 available workers
+15,405 workers
+20.6% increase
+2.4% unemployment rate
+2.8% state
+2,168 unemployed workers
+Scott Co.
+Average of 2,080 Average of 1,980 Average of 1,303
+new workers per year new workers per year new workers per year
+2025 2035
+16 to 24 years 13,771 13,241
+25 to 54 years 57,952 65,282
+55 to 64 years 16,294 15,921
+65 years & over 5,055 6,896
+Total Labor Force 93,072 101,341Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Scott Co. averaged an 
+annual gain of new workers from 2000 to 2010, and most recently a gain of new workers since 2010 (see Figure 7). Moving forward, Scott Co. 
+is expected to add workers from 2025 to 2035 (see Table 6).COUNTY PROFILE Scott Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 2.4%, Scott Co. had a lower unemployment rate than 
+the state in 2024. After the pandemic recession Scott Co.'s 
+unemployment rate declined compared to the 2.7% pre-
+pandemic rate posted in 2019. The number of unemployed 
+workers actively seeking work in Scott Co. increased over 
+the past year, and is down compared to 2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Twin Cities returned to pre-pandemic levels, 
+but employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-4941,8391,482
+348
+-2,000-1,00001,0002,0003,0004,0005,0006,0001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,80274,94987,17986,68590,354
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+010,00020,00030,00040,00050,00060,00070,00080,00090,000100,0002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Scott Co.
+1.2
+1.0 1.0
+0.7
+0.50.61.8
+0.50.40.50.7
+0.00.51.01.52.0
+ - 20,000 40,000 60,000 80,000 100,000 120,000 140,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Twin Cities Metro Area Vacancies
+Twin Cities Metro Area Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+88,657 75.3% 3.0% 68.5% 3.9% 46,438 42,223
+4,866 55.4% 6.0% 52.7% 9.9% 2,499 2,363
+7,826 89.2% 3.9% 83.4% 6.5% 3,907 3,919
+36,471 90.0% 3.2% 88.7% 3.5% 19,055 17,417
+19,989 92.4% 2.5% 87.8% 2.9% 10,501 9,483
+15,208 79.2% 2.0% 72.8% 3.0% 8,215 6,992
+3,774 31.6% 1.4% 27.8% 3.4% 1,943 1,833
+535 7.8% 3.0% 6.6% 3.1% 318 216
+71,768 75.2% 2.5% 67.5% 3.4% White alone 81.0%
+3,458 66.0% 9.6% 71.0% 8.4% Black or African American 3.9%
+418 50.5% 0.2% 57.7% 11.4% American Indian & Alaska Native 0.5%
+6,133 81.7% 1.7% 74.6% 3.5% Asian or Other Pac. Islanders 6.9%
+2,313 83.7% 6.7% 75.9% 5.6% Some Other Race 2.6%
+4,613 77.3% 5.2% 74.2% 6.1% Two or More Races 5.2%
+5,106 78.9% 6.0% 77.1% 5.9%
+4,399 68.6% 4.7% 55.3% 9.5%
+71,690 88.1% 2.8% 84.4% 3.3%
+2,790 72.7% 5.1% 67.1% 4.7%
+11,653 82.7% 2.4% 76.5% 2.6%
+22,493 87.2% 2.4% 85.0% 3.6%
+34,712 92.2% 1.8% 90.5% 2.0%
+Number Percent Number Percent
+84,132 99.4% 2,870,678 97.8%
+41,643 49.2% 1,984,232 67.6%
+42,574 50.3% 886,447 30.2%
+508 0.6% 64,576 2.2%
+67,373 79.6% 2,286,563 77.9%
+508 0.6% 61,640 2.1%
+1,947 2.3% 120,345 4.1%
+14,897 17.6% 463,770 15.8%
+11,257 13.3% 478,446 16.3%
+20,991 24.8% 924,605 31.5%
+20,314 24.0% 651,626 22.2%
+21,752 25.7% 551,828 18.8%
+6,517 7.7% 176,115 6.0%
+3,809 4.5% 149,698 5.1%
+24.9 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanScott Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKScott Co. had a higher labor force participation rate than the state. The labor force in Scott Co. is less racially diverse than the state (where 
+80.0% of workers are white alone), but is becoming more diverse over time.
+A smaller percentage of workers in Scott Co. worked in the same county in which they live compared to the state. Scott Co. also had a longer 
+average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesScott Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Scott Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+4.8%
+10.0%
+21.2%
+28.3%
+13.9%
+21.8%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Scott Co. Minnesota81.0%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$120,247
+state $87,556
+$138,181
+state $111,492
+$53,499
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Scott Co. $39,977 $19.22 $0 $414 $158 $1,345 $567 $407 $440
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Scott Co. $76,072 $24.38 $660 $943 $567 $1,669 $1,015 $604 $881
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+45,724 100.0% 100.0%
+979 2.1% 4.0%
+603 1.3% 4.0%
+403 0.9% 6.2%
+889 1.9% 8.9%
+8,918 19.5% 25.7%
+20,520 44.9% 33.6%
+13,412 29.3% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$393,500
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent22.1%
+47.3%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$2,265COUNTY PROFILE Scott Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Scott Co.Median Household Income
+Median Family Income
+$1,485The cost of living has increased over the past 2 years with costs up in many areas. Scott Co. had a higher cost of living than the state, with a 
+required hourly wage of $19.22 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of 
+$24.38 for a typical family with 2 adults and 1 child (see Table 9).
+Scott Co. had a higher median house value than the state, having the 3rd highest value of the 87 counties in 2022. Scott Co.'s housing stock 
+was newer than the state's, with a higher percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeScott Co. had a higher median household income than the state, and a lower percentage of households with incomes below $50,000. Overall, 
+Scott Co. had the 2nd highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs5.7%
+11.7%10.5%
+15.4%11.8%
+15.7%12.2%
+13.5%22.2%
+19.7%37.5%
+24.0%Scott Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+14.5%
+27.3%
+34.0%
+15.1%
+4.6%
+4.6%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 10% 20% 30% 40%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Scott Co. Minnesota
+24.1%
+13.9%
+14.7%13.0%34.3%
+52.6%
+16.1%9.2%7.2%15.0%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$28.48     1,762,280 100.0% 1.0 $26.22      2,920,470 100.0%
+$63.62     130,080 7.4% 1.1 $59.38 200,060 6.9%
+$41.34     151,080 8.6% 1.2 $39.95 208,210 7.1%
+$51.35       71,750 4.1% 1.2 $50.02 97,460 3.3%
+$47.56       40,480 2.3% 1.2 $45.03 57,950 2.0%
+$40.63       18,450 1.0% 1.0 $38.33 32,150 1.1%
+$30.01       34,680 2.0% 1.0 $29.82 59,290 2.0%
+$53.02       16,390 0.9% 1.3 $49.52 20,750 0.7%
+$28.44       98,540 5.6% 1.0 $27.84 170,270 5.8%
+$30.28       24,600 1.4% 1.1 $28.84 36,030 1.2%
+$48.50     105,470 6.0% 0.9 $46.51 187,480 6.4%
+$18.64     110,250 6.3% 1.0 $18.67 176,750 6.1%
+$29.42       27,730 1.6% 1.0 $29.37 46,960 1.6%
+$16.93     141,110 8.0% 1.0 $16.05 240,830 8.2%
+$19.44       46,640 2.6% 0.9 $19.16 81,700 2.8%
+$17.89       39,470 2.2% 1.0 $17.54 63,300 2.2%
+$21.11     143,270 8.1% 1.0 $18.66 244,780 8.4%
+$24.71     204,770 11.6% 1.0 $24.07 340,040 11.6%
+$22.71             930 0.1% 0.5 $23.48 3,300 0.1%
+$38.33       59,580 3.4% 0.9 $34.20 114,050 3.9%
+$31.26       56,240 3.2% 0.9 $30.40 105,650 3.6%
+$24.01     110,390 6.3% 0.9 $23.56 205,220 7.0%
+$23.20     130,360 7.4% 0.9 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+66,411 $22.30
+4,460 $42.50
+3,525 $33.68
+2,465 $52.17
+1,449 $42.92
+586 $31.86
+2,687 $23.98
+3,109 $23.24
+7,696 $35.69
+4,904 $18.91
+769 $17.16
+10,433 $15.83
+1,016 $17.91
+2,189 $17.36
+7,399 $18.30
+2,971 $19.96
+779 $25.58
+2,284 $24.75
+2,014 $23.61
+3,175 $19.91 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $28.48 in 2024, wages were higher in Region 11 than the state. Overall, Region 11 had the highest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($63.62) and lowest for food preparation and 
+serving related jobs ($16.93) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Scott Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 11 State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Twin Cities Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairScott Co. is a part of the Twin Cities planning region. There were 66411 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryMining 
+0%Construction 
+4%
+Manufacturing 
+6%Utilities 
+0%
+Wholesale Trade 
+4%
+Retail Trade 
+12%Transportatio
+n and 
+Warehousing 
+2%
+Informati
+on 
+1%Finance and 
+Insurance 
+2%Real 
+Estate and 
+Rental 
+and 
+Leasing 
+1%Professional 
+and Technical 
+Services 
+8%Management 
+of Companies 
+and 
+Enterprises Administrative 
+and Waste 
+Services 
+1%Educational 
+Services 
+7%Health Care 
+and Social 
+Assistance 
+26%Arts, 
+Entertainment, 
+and Recreation 
+4%Accommodatio
+n and Food 
+Services 
+16%Other Services, 
+Ex. Public Admin 
+2%Public 
+Administration 
+3%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Home Health and Personal 
+Care Aides
+$35,514/yr
+Retail Salespersons
+$36,304/yr
+Customer Service 
+Representatives
+$49,374/yr
+First-Line Supervisors of 
+Food Preparation and 
+$45,909/yr
+Cashiers
+$34,855/yr
+Stockers and Order Fillers
+$39,688/yr
+Laborers and Freight, Stock, 
+and Material Movers, Hand
+$47,597/yr
+First-Line Supervisors of 
+Retail Sales Workers
+$49,788/yr
+Janitors and Cleaners, 
+Except Maids and 
+$39,304/yr
+Office Clerks, General
+$48,707/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+1,927,280       2,022,157   4.9% 94,877
+4,299                4,497         4.6% 198
+5,966                5,918         -0.8% -48
+76,624              81,639      6.5% 5,015
+175,365           178,983    2.1% 3,618
+88,950              95,889      7.8% 6,939
+155,453           153,000    -1.6% -2,453
+69,046              74,385      7.7% 5,339
+33,947              36,573      7.7% 2,626
+152,950           158,767    3.8% 5,817
+219,218           239,258    9.1% 20,040
+103,764           106,039    2.2% 2,275
+140,511           146,053    3.9% 5,542
+274,229           299,555    9.2% 25,326
+159,585           169,263    6.1% 9,678
+70,450              72,988      3.6% 2,538
+107,703           109,441    1.6% 1,738
+Source: DEED 2022-2032 Employment OutlookSubstance abuse, behavioral disorder, and 
+mental health counselors
+Licensed Practical and Licensed Vocational 
+Nurses
+Automotive Service Technicians and 
+Mechanics
+$49,721/yrNursing Assistants Registered Nurses Software Developers
+$46,080/yr $103,847/yr $131,741/yrCOUNTY PROFILE Scott Co.
+OCCUPATIONS IN DEMAND
+Table 13. Twin Cities Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Heavy and Tractor-Trailer Truck Drivers Dental Hygienists Accountants and Auditors
+$64,047/yr $97,477/yr $81,809/yr
+Industrial Engineering 
+Technologists and TechniciansMarket Research Analysts and 
+Marketing Specialists
+$53,952/yr $69,564/yr $83,647/yr
+Financial Managers
+$58,858/yr $74,713/yr $165,961/yr
+$80,249/yr $103,880/yr
+MachinistsPolice and Sheriff's Patrol 
+OfficersElementary School Teachers, 
+Except Special EducationMedical AssistantsRadiologic Technologists and 
+TechniciansProject Management Specialists
+$52,350/yr $83,266/yr $101,522/yr
+Paralegals and Legal Assistants General and Operations Managers
+$61,708/yr $66,277/yr $106,095/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Twin Cities Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityScott Co. is a part of the Twin Cities planning region, which is projected to see a 4.9% increase in employment levels over the next decade. In 
+addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$66,022/yr
+$65,327/yrComputer User Support Specialists Surgical Technologists Industrial Engineers
+Pharmacy TechniciansVeterinary Assistants and 
+Laboratory Animal CaretakersHuman Resources Specialists
+$42,360/yr $79,466/yr
+Source: DEED Occupations in DemandBookkeeping, Accounting, and Auditing 
+ClerksVeterinary Technologists and 
+TechniciansManagement Analysts
+$54,327/yr $48,503/yr $100,289/yr
+Electrical and Electronic 
+Engineering Technologists and 
+$63,126/yr $95,455/yr
+12,037
+11,545
+13,541
+4,226
+1,857
+3,296
+1,085
+5,935
+1,852
+8,555
+13,760
+1,022
+5,127
+2,054
+4,361
+533
+-11,947
+-45
+4,595
+3,432
+-1,160
+9,21645,554
+52,761
+19,580
+12,502
+4,002
+15,875
+4,921
+48,634
+15,251
+34,125
+83,254
+15,330
+115,650
+35,534
+35,857
+86,129
+122,414
+1,917
+24,853
+23,829
+48,025
+75,028-50,000 0 50,000 100,000 150,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+3,990 business establishments annual average wage
+63,103 jobs total industry payroll
+10,962 jobs  
+21.0% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+63,103 100.0% $62,140 Total, All Industries 3.6%
+130 0.2% $41,454 Agriculture, Forestry, Fish & Hunt 2.4%
+65 0.1% $91,356 Mining -1.5%
+5,798 9.2% $90,409 Construction -3.1%
+7,417 11.8% $92,209 Manufacturing 19.0%
+220 0.3% $85,165 Utilities 4.3%
+3,168 5.0% $88,422 Wholesale Trade 2.5%
+5,910 9.4% $38,438 Retail Trade -1.3%
+9,959 15.8% $46,647 Transportation & Warehousing 4.3%
+280 0.4% $74,639 Information 2.9%
+670 1.1% $91,513 Finance & Insurance -3.9%
+522 0.8% $81,133 Real Estate & Rental & Leasing 18.1%
+1,352 2.1% $120,893 Professional & Technical Services -6.3%
+128 0.2% $158,911 Management of Companies -9.2%
+2,444 3.9% $56,704 Admin. Support & Waste Mgmt. Svcs. 6.0%
+4,601 7.3% $57,567 Educational Services 4.5%
+6,148 9.7% $59,291 Health Care & Social Assistance 8.5%
+2,267 3.6% $30,574 Arts, Entertainment, & Recreation -0.7%
+7,228 11.5% $36,089 Accommodation & Food Services -0.7%
+1,955 3.1% $45,317 Other Services -3.9%
+2,832 4.5% $73,868 Public Administration 5.4%
+For more information on Scott Co.'s population, labor force, and economic trends, contact:
+Tim O'Neill Regional Analyst, Twin Cities Metro
+DEED Headquarters  |  180 E 5th St., Suite 1200  |  St. Paul MN 55101
+Office: 651-259-7401 Email: timothy.oneill@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Scott Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Scott Co. had the 9th largest economy of the 87 counties in the 
+state. Scott Co. was the 4th fastest growing in the past year and the 2nd fastest growing since 2019. From 2019 to 2024, employment in Scott 
+Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Scott Co. Industry Employment 
+Statistics, 2024Job change,                    
+2019-2024$62,140
+$3,921,204,012
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration3.6%
+2.4%
+-1.5%
+-3.1%
+19.0%
+4.3%
+2.5%
+-1.3%
+4.3%
+2.9%
+-3.9%
+18.1%
+-6.3%
+-9.2%
+6.0%
+4.5%
+8.5%
+-0.7%
+-0.7%
+-3.9%
+5.4%-20.0% -10.0% 0.0% 10.0% 20.0% 30.0%Figure 17. Change in Jobs, 2023 -202440,88243,05740,593 54,81152,14163,103
+2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+010,00020,00030,00040,00050,00060,00070,000
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Scott Co. Minnesota
+
+Provide your analysis as JSON following the required schema. Use ONLY the allowed fields from the fact sheet (economy, market, insurance, weather flags, NASS progress). Ignore any agronomic variables already modeled by ML.
+
+Return ONLY the JSON object, no other text.
+
+================================================================================
+FACT SHEET CONTENT (from PDF)
+================================================================================
+
+2024 population: 157,206 people
+6,278 people 37.3 years
+4.2% increase state: 38.6 years
+Number Percent
+Under 5 years 9,618 6.1%
+5-14 years 24,100 15.3%
+15-24 years 20,525 13.1%
+25-34 years 18,441 11.7%
+35-44 years 23,223 14.8%
+45-54 years 22,234 14.1%
+55-64 years 19,735 12.6%
+65-74 years 12,275 7.8%
+75-84 years 5,044 3.2%
+85 years & over 2,010 1.3%
+Total Population 157,206 100.0%
+Births Deaths Total
+Scott Co. 6,287 3,346 7,235 3,889 2,876
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 14,778 9.7% 3,412 30.0% 8.6% 24.7%
+Europe 2,202 14.9% 808 58.0% 8.8% -3.4%
+Asia 6,009 40.7% 573 10.5% 35.7% 18.1%
+Africa 2,767 18.7% 1,491 116.8% 28.3% 78.8%
+Oceania 0 0.0% -101 -100.0% 0.4% 5.4%
+Americas: 3,800 25.7% 641 20.3% 26.7% 8.7%
+Latin America 3,466 23.5% 691 24.9% 24.2% 9.7%
+Northern America 334 2.3% -50 -13.0% 2.5% 0.4%Scott Co. enjoyed a natural increase - more births than deaths from 2020 to 2024, but also experienced net in-migration - meaning more 
+people moved in than moved out. In addition to domestic in-migration, Scott Co. welcomed net international in-migration - gaining new 
+Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Scott Co. has a larger percentage of foreign-born residents. From 2013 to 2023, Scott Co. saw an increase in the 
+number of foreign-born residents, which was faster than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Scott Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Scott Co. is a part of Economic Development Region 11, which is located in the Twin 
+Cities Planning Region.Scott Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+1,094
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program1,782
+81,091Scott Co. is the 9th largest of the 87 counties in the state. Its population increased so far this decade, ranking as the 10th fastest growing in 
+the state from 2020 to 2024. Scott Co.'s population has a younger median age than the state and a smaller percentage of people aged 65 
+years and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+8,296
+15,711
+9,927
+14,962
+18,437
+10,760
+5,861
+3,076
+1,825
+6439,618
+24,100
+20,525
+18,441
+23,223
+22,234
+19,735
+12,275
+5,044
+2,010Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+15%
+41% 19%0%
+23%2%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+152,957 100.0% 15.2% 100.0% 6.8%
+120,185 78.6% 4.4% 78.4% -2.2%
+8,017 5.2% 125.8% 6.8% 38.9%
+1,078 0.7% 31.0% 0.9% -11.6%
+ 9,337 6.1% 24.1% 5.1% 29.6%
+4,232 2.8% 110.9% 2.7% 96.1%
+10,108 6.6% 170.7% 6.2% 168.3%
+9,435 6.2% 57.6% 6.2% 37.5%
+Scott Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change159,790    176,504          
+Under 5 years 9,403              10,277              874 9.3%
+5-14 years 21,927            20,944              -983 -4.5%
+15-24 years 21,157            19,936              -1,221 -5.8%
+25-34 years 19,796            24,362              4,566 23.1%
+35-44 years 22,480            25,028              2,548 11.3%
+45-54 years 21,555            22,562              1,007 4.7%
+55-64 years 20,574            20,103              -471 -2.3%
+65-74 years 13,736            18,065              4,329 31.5%
+75-84 years 6,874              11,251              4,377 63.7%
+85 years & over 2,288              3,976                1,688 73.8%
+Total Population 159,790       176,504          16,714 10.5%
+72.1%
+68.8%
+12.7%
+29.0%
+11.5%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Scott Co. has a higher percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a higher 
+percentage of people with at least some college experience. Scott Co. also has a higher percentage of people with an Associate's degree and a 
+higher percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:93.7%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Scott Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Scott Co.'s population is expected to grow from 2025 to 2035, with a rate of change 
+that is faster than the projected statewide growth rate (3.7%). In addition to the overall growth, the number of people aged 65 years and 
+older is expected to increase over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSScott Co.'s population was becoming more racially diverse over time. Since 2013, the white population increased and the number of people of 
+other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Scott Co. Minnesota
+6%
+22%
+19%
+13%29%11%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree78.6%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 20,000 40,000 60,000 80,000 100,000 120,000 140,000 160,000 180,000 200,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+90,354 available workers
+15,405 workers
+20.6% increase
+2.4% unemployment rate
+2.8% state
+2,168 unemployed workers
+Scott Co.
+Average of 2,080 Average of 1,980 Average of 1,303
+new workers per year new workers per year new workers per year
+2025 2035
+16 to 24 years 13,771 13,241
+25 to 54 years 57,952 65,282
+55 to 64 years 16,294 15,921
+65 years & over 5,055 6,896
+Total Labor Force 93,072 101,341Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Scott Co. averaged an 
+annual gain of new workers from 2000 to 2010, and most recently a gain of new workers since 2010 (see Figure 7). Moving forward, Scott Co. 
+is expected to add workers from 2025 to 2035 (see Table 6).COUNTY PROFILE Scott Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 2.4%, Scott Co. had a lower unemployment rate than 
+the state in 2024. After the pandemic recession Scott Co.'s 
+unemployment rate declined compared to the 2.7% pre-
+pandemic rate posted in 2019. The number of unemployed 
+workers actively seeking work in Scott Co. increased over 
+the past year, and is down compared to 2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Twin Cities returned to pre-pandemic levels, 
+but employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-4941,8391,482
+348
+-2,000-1,00001,0002,0003,0004,0005,0006,0001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,80274,94987,17986,68590,354
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+010,00020,00030,00040,00050,00060,00070,00080,00090,000100,0002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Scott Co.
+1.2
+1.0 1.0
+0.7
+0.50.61.8
+0.50.40.50.7
+0.00.51.01.52.0
+ - 20,000 40,000 60,000 80,000 100,000 120,000 140,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Twin Cities Metro Area Vacancies
+Twin Cities Metro Area Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+88,657 75.3% 3.0% 68.5% 3.9% 46,438 42,223
+4,866 55.4% 6.0% 52.7% 9.9% 2,499 2,363
+7,826 89.2% 3.9% 83.4% 6.5% 3,907 3,919
+36,471 90.0% 3.2% 88.7% 3.5% 19,055 17,417
+19,989 92.4% 2.5% 87.8% 2.9% 10,501 9,483
+15,208 79.2% 2.0% 72.8% 3.0% 8,215 6,992
+3,774 31.6% 1.4% 27.8% 3.4% 1,943 1,833
+535 7.8% 3.0% 6.6% 3.1% 318 216
+71,768 75.2% 2.5% 67.5% 3.4% White alone 81.0%
+3,458 66.0% 9.6% 71.0% 8.4% Black or African American 3.9%
+418 50.5% 0.2% 57.7% 11.4% American Indian & Alaska Native 0.5%
+6,133 81.7% 1.7% 74.6% 3.5% Asian or Other Pac. Islanders 6.9%
+2,313 83.7% 6.7% 75.9% 5.6% Some Other Race 2.6%
+4,613 77.3% 5.2% 74.2% 6.1% Two or More Races 5.2%
+5,106 78.9% 6.0% 77.1% 5.9%
+4,399 68.6% 4.7% 55.3% 9.5%
+71,690 88.1% 2.8% 84.4% 3.3%
+2,790 72.7% 5.1% 67.1% 4.7%
+11,653 82.7% 2.4% 76.5% 2.6%
+22,493 87.2% 2.4% 85.0% 3.6%
+34,712 92.2% 1.8% 90.5% 2.0%
+Number Percent Number Percent
+84,132 99.4% 2,870,678 97.8%
+41,643 49.2% 1,984,232 67.6%
+42,574 50.3% 886,447 30.2%
+508 0.6% 64,576 2.2%
+67,373 79.6% 2,286,563 77.9%
+508 0.6% 61,640 2.1%
+1,947 2.3% 120,345 4.1%
+14,897 17.6% 463,770 15.8%
+11,257 13.3% 478,446 16.3%
+20,991 24.8% 924,605 31.5%
+20,314 24.0% 651,626 22.2%
+21,752 25.7% 551,828 18.8%
+6,517 7.7% 176,115 6.0%
+3,809 4.5% 149,698 5.1%
+24.9 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanScott Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKScott Co. had a higher labor force participation rate than the state. The labor force in Scott Co. is less racially diverse than the state (where 
+80.0% of workers are white alone), but is becoming more diverse over time.
+A smaller percentage of workers in Scott Co. worked in the same county in which they live compared to the state. Scott Co. also had a longer 
+average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesScott Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Scott Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+4.8%
+10.0%
+21.2%
+28.3%
+13.9%
+21.8%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Scott Co. Minnesota81.0%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$120,247
+state $87,556
+$138,181
+state $111,492
+$53,499
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Scott Co. $39,977 $19.22 $0 $414 $158 $1,345 $567 $407 $440
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Scott Co. $76,072 $24.38 $660 $943 $567 $1,669 $1,015 $604 $881
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+45,724 100.0% 100.0%
+979 2.1% 4.0%
+603 1.3% 4.0%
+403 0.9% 6.2%
+889 1.9% 8.9%
+8,918 19.5% 25.7%
+20,520 44.9% 33.6%
+13,412 29.3% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$393,500
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent22.1%
+47.3%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$2,265COUNTY PROFILE Scott Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Scott Co.Median Household Income
+Median Family Income
+$1,485The cost of living has increased over the past 2 years with costs up in many areas. Scott Co. had a higher cost of living than the state, with a 
+required hourly wage of $19.22 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of 
+$24.38 for a typical family with 2 adults and 1 child (see Table 9).
+Scott Co. had a higher median house value than the state, having the 3rd highest value of the 87 counties in 2022. Scott Co.'s housing stock 
+was newer than the state's, with a higher percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeScott Co. had a higher median household income than the state, and a lower percentage of households with incomes below $50,000. Overall, 
+Scott Co. had the 2nd highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs5.7%
+11.7%10.5%
+15.4%11.8%
+15.7%12.2%
+13.5%22.2%
+19.7%37.5%
+24.0%Scott Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+14.5%
+27.3%
+34.0%
+15.1%
+4.6%
+4.6%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 10% 20% 30% 40%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Scott Co. Minnesota
+24.1%
+13.9%
+14.7%13.0%34.3%
+52.6%
+16.1%9.2%7.2%15.0%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$28.48     1,762,280 100.0% 1.0 $26.22      2,920,470 100.0%
+$63.62     130,080 7.4% 1.1 $59.38 200,060 6.9%
+$41.34     151,080 8.6% 1.2 $39.95 208,210 7.1%
+$51.35       71,750 4.1% 1.2 $50.02 97,460 3.3%
+$47.56       40,480 2.3% 1.2 $45.03 57,950 2.0%
+$40.63       18,450 1.0% 1.0 $38.33 32,150 1.1%
+$30.01       34,680 2.0% 1.0 $29.82 59,290 2.0%
+$53.02       16,390 0.9% 1.3 $49.52 20,750 0.7%
+$28.44       98,540 5.6% 1.0 $27.84 170,270 5.8%
+$30.28       24,600 1.4% 1.1 $28.84 36,030 1.2%
+$48.50     105,470 6.0% 0.9 $46.51 187,480 6.4%
+$18.64     110,250 6.3% 1.0 $18.67 176,750 6.1%
+$29.42       27,730 1.6% 1.0 $29.37 46,960 1.6%
+$16.93     141,110 8.0% 1.0 $16.05 240,830 8.2%
+$19.44       46,640 2.6% 0.9 $19.16 81,700 2.8%
+$17.89       39,470 2.2% 1.0 $17.54 63,300 2.2%
+$21.11     143,270 8.1% 1.0 $18.66 244,780 8.4%
+$24.71     204,770 11.6% 1.0 $24.07 340,040 11.6%
+$22.71             930 0.1% 0.5 $23.48 3,300 0.1%
+$38.33       59,580 3.4% 0.9 $34.20 114,050 3.9%
+$31.26       56,240 3.2% 0.9 $30.40 105,650 3.6%
+$24.01     110,390 6.3% 0.9 $23.56 205,220 7.0%
+$23.20     130,360 7.4% 0.9 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+66,411 $22.30
+4,460 $42.50
+3,525 $33.68
+2,465 $52.17
+1,449 $42.92
+586 $31.86
+2,687 $23.98
+3,109 $23.24
+7,696 $35.69
+4,904 $18.91
+769 $17.16
+10,433 $15.83
+1,016 $17.91
+2,189 $17.36
+7,399 $18.30
+2,971 $19.96
+779 $25.58
+2,284 $24.75
+2,014 $23.61
+3,175 $19.91 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $28.48 in 2024, wages were higher in Region 11 than the state. Overall, Region 11 had the highest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($63.62) and lowest for food preparation and 
+serving related jobs ($16.93) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Scott Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 11 State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Twin Cities Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairScott Co. is a part of the Twin Cities planning region. There were 66411 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryMining 
+0%Construction 
+4%
+Manufacturing 
+6%Utilities 
+0%
+Wholesale Trade 
+4%
+Retail Trade 
+12%Transportatio
+n and 
+Warehousing 
+2%
+Informati
+on 
+1%Finance and 
+Insurance 
+2%Real 
+Estate and 
+Rental 
+and 
+Leasing 
+1%Professional 
+and Technical 
+Services 
+8%Management 
+of Companies 
+and 
+Enterprises Administrative 
+and Waste 
+Services 
+1%Educational 
+Services 
+7%Health Care 
+and Social 
+Assistance 
+26%Arts, 
+Entertainment, 
+and Recreation 
+4%Accommodatio
+n and Food 
+Services 
+16%Other Services, 
+Ex. Public Admin 
+2%Public 
+Administration 
+3%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Home Health and Personal 
+Care Aides
+$35,514/yr
+Retail Salespersons
+$36,304/yr
+Customer Service 
+Representatives
+$49,374/yr
+First-Line Supervisors of 
+Food Preparation and 
+$45,909/yr
+Cashiers
+$34,855/yr
+Stockers and Order Fillers
+$39,688/yr
+Laborers and Freight, Stock, 
+and Material Movers, Hand
+$47,597/yr
+First-Line Supervisors of 
+Retail Sales Workers
+$49,788/yr
+Janitors and Cleaners, 
+Except Maids and 
+$39,304/yr
+Office Clerks, General
+$48,707/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+1,927,280       2,022,157   4.9% 94,877
+4,299                4,497         4.6% 198
+5,966                5,918         -0.8% -48
+76,624              81,639      6.5% 5,015
+175,365           178,983    2.1% 3,618
+88,950              95,889      7.8% 6,939
+155,453           153,000    -1.6% -2,453
+69,046              74,385      7.7% 5,339
+33,947              36,573      7.7% 2,626
+152,950           158,767    3.8% 5,817
+219,218           239,258    9.1% 20,040
+103,764           106,039    2.2% 2,275
+140,511           146,053    3.9% 5,542
+274,229           299,555    9.2% 25,326
+159,585           169,263    6.1% 9,678
+70,450              72,988      3.6% 2,538
+107,703           109,441    1.6% 1,738
+Source: DEED 2022-2032 Employment OutlookSubstance abuse, behavioral disorder, and 
+mental health counselors
+Licensed Practical and Licensed Vocational 
+Nurses
+Automotive Service Technicians and 
+Mechanics
+$49,721/yrNursing Assistants Registered Nurses Software Developers
+$46,080/yr $103,847/yr $131,741/yrCOUNTY PROFILE Scott Co.
+OCCUPATIONS IN DEMAND
+Table 13. Twin Cities Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Heavy and Tractor-Trailer Truck Drivers Dental Hygienists Accountants and Auditors
+$64,047/yr $97,477/yr $81,809/yr
+Industrial Engineering 
+Technologists and TechniciansMarket Research Analysts and 
+Marketing Specialists
+$53,952/yr $69,564/yr $83,647/yr
+Financial Managers
+$58,858/yr $74,713/yr $165,961/yr
+$80,249/yr $103,880/yr
+MachinistsPolice and Sheriff's Patrol 
+OfficersElementary School Teachers, 
+Except Special EducationMedical AssistantsRadiologic Technologists and 
+TechniciansProject Management Specialists
+$52,350/yr $83,266/yr $101,522/yr
+Paralegals and Legal Assistants General and Operations Managers
+$61,708/yr $66,277/yr $106,095/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Twin Cities Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityScott Co. is a part of the Twin Cities planning region, which is projected to see a 4.9% increase in employment levels over the next decade. In 
+addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$66,022/yr
+$65,327/yrComputer User Support Specialists Surgical Technologists Industrial Engineers
+Pharmacy TechniciansVeterinary Assistants and 
+Laboratory Animal CaretakersHuman Resources Specialists
+$42,360/yr $79,466/yr
+Source: DEED Occupations in DemandBookkeeping, Accounting, and Auditing 
+ClerksVeterinary Technologists and 
+TechniciansManagement Analysts
+$54,327/yr $48,503/yr $100,289/yr
+Electrical and Electronic 
+Engineering Technologists and 
+$63,126/yr $95,455/yr
+12,037
+11,545
+13,541
+4,226
+1,857
+3,296
+1,085
+5,935
+1,852
+8,555
+13,760
+1,022
+5,127
+2,054
+4,361
+533
+-11,947
+-45
+4,595
+3,432
+-1,160
+9,21645,554
+52,761
+19,580
+12,502
+4,002
+15,875
+4,921
+48,634
+15,251
+34,125
+83,254
+15,330
+115,650
+35,534
+35,857
+86,129
+122,414
+1,917
+24,853
+23,829
+48,025
+75,028-50,000 0 50,000 100,000 150,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+3,990 business establishments annual average wage
+63,103 jobs total industry payroll
+10,962 jobs  
+21.0% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+63,103 100.0% $62,140 Total, All Industries 3.6%
+130 0.2% $41,454 Agriculture, Forestry, Fish & Hunt 2.4%
+65 0.1% $91,356 Mining -1.5%
+5,798 9.2% $90,409 Construction -3.1%
+7,417 11.8% $92,209 Manufacturing 19.0%
+220 0.3% $85,165 Utilities 4.3%
+3,168 5.0% $88,422 Wholesale Trade 2.5%
+5,910 9.4% $38,438 Retail Trade -1.3%
+9,959 15.8% $46,647 Transportation & Warehousing 4.3%
+280 0.4% $74,639 Information 2.9%
+670 1.1% $91,513 Finance & Insurance -3.9%
+522 0.8% $81,133 Real Estate & Rental & Leasing 18.1%
+1,352 2.1% $120,893 Professional & Technical Services -6.3%
+128 0.2% $158,911 Management of Companies -9.2%
+2,444 3.9% $56,704 Admin. Support & Waste Mgmt. Svcs. 6.0%
+4,601 7.3% $57,567 Educational Services 4.5%
+6,148 9.7% $59,291 Health Care & Social Assistance 8.5%
+2,267 3.6% $30,574 Arts, Entertainment, & Recreation -0.7%
+7,228 11.5% $36,089 Accommodation & Food Services -0.7%
+1,955 3.1% $45,317 Other Services -3.9%
+2,832 4.5% $73,868 Public Administration 5.4%
+For more information on Scott Co.'s population, labor force, and economic trends, contact:
+Tim O'Neill Regional Analyst, Twin Cities Metro
+DEED Headquarters  |  180 E 5th St., Suite 1200  |  St. Paul MN 55101
+Office: 651-259-7401 Email: timothy.oneill@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Scott Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Scott Co. had the 9th largest economy of the 87 counties in the 
+state. Scott Co. was the 4th fastest growing in the past year and the 2nd fastest growing since 2019. From 2019 to 2024, employment in Scott 
+Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Scott Co. Industry Employment 
+Statistics, 2024Job change,                    
+2019-2024$62,140
+$3,921,204,012
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration3.6%
+2.4%
+-1.5%
+-3.1%
+19.0%
+4.3%
+2.5%
+-1.3%
+4.3%
+2.9%
+-3.9%
+18.1%
+-6.3%
+-9.2%
+6.0%
+4.5%
+8.5%
+-0.7%
+-0.7%
+-3.9%
+5.4%-20.0% -10.0% 0.0% 10.0% 20.0% 30.0%Figure 17. Change in Jobs, 2023 -202440,88243,05740,593 54,81152,14163,103
+2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+010,00020,00030,00040,00050,00060,00070,000
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Scott Co. Minnesota
+
+================================================================================
+INSTRUCTIONS
+================================================================================
+
+1. Copy the SYSTEM PROMPT above and paste it as the system message in Grok
+2. Copy the USER PROMPT above and paste it as the user message in Grok
+3. Grok should return a JSON response with the required schema:
+   - adj_raw: float in [-1, 1]
+   - adj: float (after bounds & damping)
+   - pred_yield_bu_ac: float (= ml_pred * (1 + adj))
+   - low_80: float
+   - high_80: float
+   - drivers: array of 3-5 short phrases
+4. The adjustment uses alpha=0.15 and damping based on ML confidence
+5. Only use allowed fields from fact sheet (economy, market, insurance, weather flags, NASS progress)

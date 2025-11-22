@@ -4,32 +4,22 @@ This module implements the hybrid model combining ML predictions with LLM adjust
 
 ## Overview
 
-The hybrid model consists of three main components:
+The hybrid model consists of two main components:
 
-1. **Factsheet Builder**: Constructs numeric factsheet per (county, year)
-2. **LLM Track**: Calls Grok API for bounded reasoning (adjustment a ∈ [-0.20, 0.20])
-3. **Hybrid Aggregation**: Combines ML baseline with LLM adjustment
+1. **LLM Track**: Calls Grok API for bounded reasoning (adjustment a ∈ [-0.20, 0.20]) using PDF fact sheets
+2. **Hybrid Aggregation**: Combines ML baseline with LLM adjustment
 
 ## Architecture
 
-### 5.2 LLM Track (Bounded Reasoning)
+### LLM Track (Bounded Reasoning)
 
-For each (county, year), we construct a numeric factsheet containing:
-
-- **Soils**: AWC, OM, drainage (approximated from available data)
-- **CDL fraction**: Placeholder (would need CDL data)
-- **Ethanol distance**: From county to nearest ethanol plant
-- **Pre-season price signals**: Dec futures avg/vol, basis, prior-harvest cash (placeholder)
-- **Windowed indices**: MB_w, VPD, thermal, radiation, root moisture, wind
-- **Drought**: %D2+_w (placeholder, would need drought monitor data)
-- **Recent yields**: y_c,t-1, y_c,t-2, y_c,t-3
-- **ML baseline**: y^_ML (from best ML model)
+For each (county, year), the LLM analyzes a PDF fact sheet for the county (named by FIPS code, e.g., `27001.pdf` for Aitkin County). The fact sheet contains comprehensive county-level agricultural information.
 
 The LLM returns strict JSON with:
 - `adjustment`: float in [-0.20, 0.20]
 - `drivers`: array of 2-4 short bullet points
 
-Agronomic rules are embedded in the system prompt (e.g., if MB_w << 0 and VPD high → negative adj).
+Agronomic rules are embedded in the system prompt (e.g., if moisture deficit and VPD high → negative adj).
 
 ### 6. Hybrid Aggregation
 
@@ -53,10 +43,10 @@ We keep Adjust-Only as the operational default for stability and cost.
 
 ## Files
 
-- `factsheet_builder.py`: Constructs factsheets per (county, year)
-- `llm_track.py`: Grok API integration for LLM reasoning
+- `llm_track.py`: Grok API integration for LLM reasoning (reads PDF fact sheets)
 - `hybrid_aggregation.py`: Hybrid aggregation methods
 - `hybrid_model.py`: Main orchestration script
+- `Fact Sheet/`: Directory containing PDF fact sheets named by FIPS code (e.g., `27001.pdf`)
 - `API Key.txt`: Grok API key (keep secure)
 - `Grok API Request format.txt`: Example API request format
 
@@ -69,15 +59,15 @@ from hybrid_model import HybridModel
 
 # Initialize
 model = HybridModel(
-    data_path='../consolidated_data_phase3.csv',
     api_key='your-api-key',
     ml_model_path='../xgboost_best_model.pkl',
+    fact_sheet_dir='Fact Sheet',  # Directory with PDF fact sheets
     method='adjust_only'
 )
 
 # Single prediction
 result = model.predict_single(
-    fips=27001,
+    fips=27001,  # County FIPS code (PDF will be loaded: 27001.pdf)
     year=2020,
     y_ml=15000000.0,  # ML baseline prediction
     p10_ml=12000000.0,
@@ -107,8 +97,8 @@ print(f"R²: {metrics['r2']:.4f}, RMSE: {metrics['rmse']:,.0f}")
 
 ```bash
 python hybrid_model.py \
-    --data ../consolidated_data_phase3.csv \
     --ml-model ../xgboost_best_model.pkl \
+    --fact-sheet-dir "Fact Sheet" \
     --method adjust_only \
     --max-samples 10
 ```
@@ -121,15 +111,16 @@ numpy >= 1.23.0
 scikit-learn >= 1.2.0
 requests >= 2.28.0
 scipy >= 1.9.0
+PyPDF2 >= 3.0.0
 ```
 
 ## Notes
 
-1. **Missing Features**: Some factsheet features (AWC, OM, drainage, CDL, futures prices, drought) are placeholders. In production, these would need actual data sources.
+1. **PDF Fact Sheets**: Fact sheets must be named by FIPS code (e.g., `27001.pdf` for Aitkin County). The LLM reads the PDF content directly.
 
 2. **API Costs**: Each prediction requires one API call. Consider batching and caching for production.
 
-3. **Fallback**: If LLM parsing fails, the model falls back to ML baseline (adjustment = 0.0).
+3. **Fallback**: If LLM parsing fails or PDF not found, the model falls back to ML baseline (adjustment = 0.0).
 
 4. **Validation**: The model clips adjustments to [-0.20, 0.20] and validates JSON parsing.
 
@@ -137,11 +128,8 @@ scipy >= 1.9.0
 
 ## Future Improvements
 
-- Add actual SSURGO data for soil properties
-- Integrate CDL data for crop fraction
-- Add commodity futures API integration
-- Integrate US Drought Monitor data
-- Cache factsheets for efficiency
+- Cache PDF text extraction for efficiency
 - Batch API calls if supported
 - Add ensemble of multiple LLM calls for robustness
+- Support alternative PDF libraries for better text extraction
 

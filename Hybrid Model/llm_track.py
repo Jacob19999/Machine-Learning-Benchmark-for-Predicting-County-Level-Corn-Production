@@ -1,6 +1,7 @@
 """
 LLM Track - Bounded Reasoning with Grok API
 Calls Grok API to get adjustment factor a ∈ [-0.20, 0.20] with strict JSON response
+Uses PDF fact sheets for county information
 """
 
 import json
@@ -8,21 +9,26 @@ import requests
 import numpy as np
 from typing import Dict, Optional, Tuple
 import time
+from pathlib import Path
+import PyPDF2
 
 
 class LLMTrack:
     """
     LLM Track for bounded reasoning
     Returns adjustment a ∈ [-0.20, 0.20] with short driver bullets
+    Uses PDF fact sheets for county information
     """
     
-    def __init__(self, api_key: str, model: str = "grok-4-latest", temperature: float = 0.0):
+    def __init__(self, api_key: str, fact_sheet_dir: str = "Fact Sheet", 
+                 model: str = "grok-4-latest", temperature: float = 0.0):
         """
         Initialize LLM Track
         
         Args:
             api_key: Grok API key
-            model: Model name (default: grok-beta)
+            fact_sheet_dir: Directory containing PDF fact sheets (default: "Fact Sheet")
+            model: Model name (default: grok-4-latest)
             temperature: Temperature for generation (0.0 for deterministic)
         """
         self.api_key = api_key
@@ -31,33 +37,125 @@ class LLMTrack:
         self.api_url = "https://api.x.ai/v1/chat/completions"
         self.max_retries = 3
         self.retry_delay = 1.0
+        
+        # Set up fact sheet directory
+        self.fact_sheet_dir = Path(__file__).parent / fact_sheet_dir
+        if not self.fact_sheet_dir.exists():
+            raise ValueError(f"Fact sheet directory not found: {self.fact_sheet_dir}")
+    
+    def _read_pdf(self, fips: int) -> str:
+        """
+        Read PDF fact sheet for given FIPS code
+        
+        Args:
+            fips: County FIPS code
+            
+        Returns:
+            Extracted text from PDF
+        """
+        pdf_path = self.fact_sheet_dir / f"{fips}.pdf"
+        
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"Fact sheet not found for FIPS {fips}: {pdf_path}")
+        
+        try:
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                text = ""
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n"
+                return text.strip()
+        except Exception as e:
+            raise ValueError(f"Error reading PDF for FIPS {fips}: {e}")
     
     def _build_system_prompt(self) -> str:
-        """Build system prompt with agronomic rules"""
-        return """You are an agricultural yield prediction expert. Your task is to analyze county-level corn production factsheets and provide a bounded adjustment factor to refine ML model predictions.
+        """Build system prompt with conservative adjustment rules"""
+        return """You are a conservative adjustment module for county-level corn yield.
 
-RULES:
-1. You must return STRICT JSON only, no free-form text or chain-of-thought
-2. The adjustment factor 'a' must be in the range [-0.20, 0.20]
-3. Include 2-4 short driver bullets explaining key factors
-4. Format: {"adjustment": <float>, "drivers": ["bullet1", "bullet2", ...]}
+Your ONLY inputs are a structured "factsheet" with exogenous signals that the ML model does not capture well.
 
-AGRONOMIC RULES (embedded):
-- If Reproductive MB_w << 0 (severe moisture deficit) AND VPD high → negative adjustment
-- If AWC low AND VPD high → stronger negative adjustment
-- If Root Moisture low AND Thermal high → negative adjustment
-- If Recent yields declining (y_t-1 < y_t-2 < y_t-3) → negative adjustment
-- If Windowed indices favorable (MB_w > 0, VPD moderate, Thermal optimal) → positive adjustment
-- If ML baseline seems high relative to recent yields → negative adjustment
-- If Drought %D2+ high → negative adjustment
-- If Pre-season prices strong → slight positive adjustment (economic signal)
+You must ignore agronomic variables already modeled by ML (soils, ethanol distance, historical yields, GLDAS/PRISM windowed indices, USDM, NDVI, etc.).
 
-Return ONLY valid JSON, no other text."""
+Goal: Propose a small, bounded multiplicative adjustment to the provided ML baseline prediction based solely on the allowed facts.
+
+Hard constraints
+
+Use only these fields if present:
+
+economy_population, economy_unemployment_rate_pct, economy_available_workers,
+
+economy_required_hourly_wage_single_usd, economy_median_hourly_wage_region_usd,
+
+economy_median_household_income_usd, selected industry wage/size metrics.
+
+market_basis_anomaly_usd, elevator_outage_flag, rail_disruption_flag.
+
+prevented_planting_flag, pp_share_pct, insurance_disaster_flag.
+
+hail_event_flag, derecho_event_flag, localized_flood_flag.
+
+nass_planting_progress_pct, nass_harvest_progress_pct (weekly progress summaries).
+
+ML meta: ml_pred (bu/ac), ml_band_width (U−L), train_rmse.
+
+Forbidden: any soils, ethanol distance, recent yields, or windowed agronomic/drought/canopy variables. If such fields appear, ignore them.
+
+Compute a raw signed adjustment adj_raw in [-1, +1] reflecting only exogenous stress/support.
+
+Negative signals (examples): very high unemployment, severe labor shortages, high required_hourly_wage vs regional median, active logistics disruptions, hail/derecho flags, widespread prevented planting.
+
+Positive signals (examples): strong labor availability with low wage pressure and no disruptions.
+
+The final applied adjustment is bounded and damped by ML confidence:
+
+alpha = 0.15 (max magnitude).
+
+kappa = exp( - ml_band_width / train_rmse ).
+
+adj = clip(adj_raw, -alpha, +alpha) * (1 - kappa).
+
+Calibrated caution: If evidence is mixed or weak, set adj_raw = 0.0. Never exceed the bounds.
+
+Output JSON only with this schema (numbers only, no explanations in prose):
+
+For a SINGLE county:
+{
+  "adj_raw": float,                  // in [-1, 1], before damping
+  "adj": float,                      // after bounds & damping rule above
+  "pred_yield_bu_ac": float,         // = ml_pred * (1 + adj)
+  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj)
+  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj)
+  "drivers": [ "short phrase", ... ] // 3–5 concise drivers referencing ONLY allowed fields
+}
+
+For MULTIPLE counties (differentiated by FIPS):
+{
+  "<fips_code>": {
+    "adj_raw": float,
+    "adj": float,
+    "pred_yield_bu_ac": float,
+    "low_80": float,
+    "high_80": float,
+    "drivers": [ "short phrase", ... ]
+  },
+  "<fips_code>": { ... },
+  ...
+}
+
+No chain-of-thought. Do not explain your reasoning; just fill the JSON.
+
+If required fields are missing (e.g., ml_pred, ml_band_width, train_rmse), return:
+{"adj_raw": 0.0, "adj": 0.0, "pred_yield_bu_ac": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
+
+FIPS codes should be strings (e.g., "27129" not 27129)."""
     
-    def _build_user_prompt(self, factsheet_text: str) -> str:
-        """Build user prompt with factsheet"""
+    def _build_user_prompt(self, factsheet_text: str, ml_baseline: float) -> str:
+        """Build user prompt with factsheet and ML baseline"""
         return f"""Analyze this corn production factsheet and provide a bounded adjustment to the ML baseline prediction.
 
+ML Baseline Prediction: {ml_baseline:,.0f} bushels
+
+Fact Sheet Information:
 {factsheet_text}
 
 Provide your analysis as JSON with:
@@ -68,8 +166,8 @@ Example format:
 {{
   "adjustment": -0.05,
   "drivers": [
-    "Severe moisture deficit (MB_w = -2.3) during critical growth period",
-    "High VPD (8.5) indicates elevated water stress",
+    "Severe moisture deficit during critical growth period",
+    "High VPD indicates elevated water stress",
     "Recent yields declining trend suggests production challenges"
   ]
 }}
@@ -173,12 +271,13 @@ Return ONLY the JSON object, no other text."""
             print(f"Response content: {content[:500] if 'content' in locals() else 'N/A'}")
             return None, None
     
-    def get_adjustment(self, factsheet_text: str) -> Tuple[Optional[float], Optional[list], bool]:
+    def get_adjustment(self, fips: int, ml_baseline: float) -> Tuple[Optional[float], Optional[list], bool]:
         """
-        Get adjustment factor from LLM
+        Get adjustment factor from LLM using PDF fact sheet
         
         Args:
-            factsheet_text: Formatted factsheet text
+            fips: County FIPS code
+            ml_baseline: ML baseline prediction (for context in prompt)
             
         Returns:
             Tuple of (adjustment, drivers, success)
@@ -186,7 +285,18 @@ Return ONLY the JSON object, no other text."""
             - drivers: list of driver bullets or None if failed
             - success: bool indicating if parsing succeeded
         """
-        api_response = self._call_api(factsheet_text)
+        # Read PDF fact sheet
+        try:
+            factsheet_text = self._read_pdf(fips)
+        except Exception as e:
+            print(f"Error reading fact sheet for FIPS {fips}: {e}")
+            return None, None, False
+        
+        # Build prompt with factsheet and ML baseline
+        prompt = self._build_user_prompt(factsheet_text, ml_baseline)
+        
+        # Call API
+        api_response = self._call_api(prompt)
         
         if api_response is None:
             return None, None, False
@@ -198,22 +308,23 @@ Return ONLY the JSON object, no other text."""
         
         return adjustment, drivers, True
     
-    def get_adjustment_with_fallback(self, factsheet_text: str, 
+    def get_adjustment_with_fallback(self, fips: int, ml_baseline: float,
                                      fallback_adjustment: float = 0.0) -> Tuple[float, Optional[list]]:
         """
         Get adjustment with fallback to default if parsing fails
         
         Args:
-            factsheet_text: Formatted factsheet text
+            fips: County FIPS code
+            ml_baseline: ML baseline prediction
             fallback_adjustment: Default adjustment if API/parsing fails
             
         Returns:
             Tuple of (adjustment, drivers)
         """
-        adjustment, drivers, success = self.get_adjustment(factsheet_text)
+        adjustment, drivers, success = self.get_adjustment(fips, ml_baseline)
         
         if not success:
-            print(f"LLM parsing failed, using fallback adjustment: {fallback_adjustment}")
+            print(f"LLM parsing failed for FIPS {fips}, using fallback adjustment: {fallback_adjustment}")
             return fallback_adjustment, None
         
         return adjustment, drivers

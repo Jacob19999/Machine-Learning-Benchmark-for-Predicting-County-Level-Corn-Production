@@ -8,9 +8,9 @@ from pathlib import Path
 from hybrid_model import HybridModel
 
 # Configuration
-DATA_PATH = '../consolidated_data_phase3.csv'
 API_KEY_PATH = Path(__file__).parent / "API Key.txt"
 ML_MODEL_PATH = '../xgboost_best_model.pkl'  # Optional
+FACT_SHEET_DIR = "Fact Sheet"  # Directory containing PDF fact sheets
 
 # Read API key
 with open(API_KEY_PATH, 'r') as f:
@@ -19,9 +19,9 @@ with open(API_KEY_PATH, 'r') as f:
 # Initialize hybrid model
 print("Initializing hybrid model...")
 model = HybridModel(
-    data_path=DATA_PATH,
     api_key=API_KEY,
     ml_model_path=ML_MODEL_PATH if Path(ML_MODEL_PATH).exists() else None,
+    fact_sheet_dir=FACT_SHEET_DIR,
     method='adjust_only'
 )
 
@@ -38,7 +38,7 @@ result = model.predict_single(
     p90_ml=18000000.0
 )
 
-print(f"\nCounty: {result['county_name']} (FIPS: {result['fips']}, Year: {result['year']})")
+print(f"\nFIPS: {result['fips']}, Year: {result['year']}")
 print(f"ML Baseline: {result['y_ml']:,.0f} bushels")
 print(f"LLM Adjustment: {result['adjustment']:.3f}")
 print(f"Hybrid Prediction: {result['y_hyb']:,.0f} bushels")
@@ -54,9 +54,11 @@ print("\n" + "="*80)
 print("EXAMPLE 2: Batch Prediction")
 print("="*80)
 
-# Load test data
-data = pd.read_csv(DATA_PATH)
-test_data = data[data['year'] >= 2020].copy()
+# Create sample test data (FIPS codes and years)
+test_data = pd.DataFrame({
+    'fips': [27001, 27003, 27005, 27007, 27009],  # Sample FIPS codes
+    'year': [2020, 2020, 2020, 2020, 2020]
+})
 
 # Get ML predictions (if model loaded)
 if model.ml_model is not None:
@@ -84,7 +86,7 @@ results_df = model.predict_batch(
 )
 
 print("\nResults:")
-print(results_df[['county_name', 'year', 'y_ml', 'adjustment', 'y_hyb']].to_string(index=False))
+print(results_df[['fips', 'year', 'y_ml', 'adjustment', 'y_hyb']].to_string(index=False))
 
 # Example 3: Evaluation (if true values available)
 print("\n" + "="*80)

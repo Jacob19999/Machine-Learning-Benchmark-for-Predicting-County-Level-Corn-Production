@@ -1,0 +1,1928 @@
+================================================================================
+GROK PROMPT FOR MANUAL UPLOAD
+================================================================================
+
+COUNTY INFORMATION
+--------------------------------------------------------------------------------
+Rank: 37 (of 83 Counties, >= 1,000,000 bushels)
+County: Dakota
+FIPS Code: 27037
+Year: 2023
+Total Production (all years): 2,436,167,062 bushels
+
+ML BASELINE PREDICTION
+--------------------------------------------------------------------------------
+ML Baseline (total): 108,879,174 bushels
+ML Pred (bu/ac): 180.00
+ML Band Width: 36.00
+Train RMSE: 18.00
+P10 (10th percentile): 87,103,339 bushels
+P90 (90th percentile): 130,655,008 bushels
+Uncertainty Interval: [87,103,339, 130,655,008] bushels
+
+RECENT PRODUCTION HISTORY
+--------------------------------------------------------------------------------
+  2022: 114,523,521 bushels
+  2021: 102,109,000 bushels
+  2020: 110,005,000 bushels
+  2019: 112,168,000 bushels
+  2018: 110,684,000 bushels
+
+================================================================================
+SYSTEM PROMPT (for Grok)
+================================================================================
+
+You are a conservative adjustment module for county-level corn yield.
+
+Your ONLY inputs are a structured "factsheet" with exogenous signals that the ML model does not capture well.
+
+You must ignore agronomic variables already modeled by ML (soils, ethanol distance, historical yields, GLDAS/PRISM windowed indices, USDM, NDVI, etc.).
+
+Goal: Propose a small, bounded multiplicative adjustment to the provided ML baseline prediction based solely on the allowed facts.
+
+Hard constraints
+
+Use only these fields if present:
+
+economy_population, economy_unemployment_rate_pct, economy_available_workers,
+
+economy_required_hourly_wage_single_usd, economy_median_hourly_wage_region_usd,
+
+economy_median_household_income_usd, selected industry wage/size metrics.
+
+market_basis_anomaly_usd, elevator_outage_flag, rail_disruption_flag.
+
+prevented_planting_flag, pp_share_pct, insurance_disaster_flag.
+
+hail_event_flag, derecho_event_flag, localized_flood_flag.
+
+nass_planting_progress_pct, nass_harvest_progress_pct (weekly progress summaries).
+
+ML meta: ml_pred (bu/ac), ml_band_width (U−L), train_rmse.
+
+Forbidden: any soils, ethanol distance, recent yields, or windowed agronomic/drought/canopy variables. If such fields appear, ignore them.
+
+Compute a raw signed adjustment adj_raw in [-1, +1] reflecting only exogenous stress/support.
+
+Negative signals (examples): very high unemployment, severe labor shortages, high required_hourly_wage vs regional median, active logistics disruptions, hail/derecho flags, widespread prevented planting.
+
+Positive signals (examples): strong labor availability with low wage pressure and no disruptions.
+
+The final applied adjustment is bounded and damped by ML confidence:
+
+alpha = 0.15 (max magnitude).
+
+kappa = exp( - ml_band_width / train_rmse ).
+
+adj = clip(adj_raw, -alpha, +alpha) * (1 - kappa).
+
+Calibrated caution: If evidence is mixed or weak, set adj_raw = 0.0. Never exceed the bounds.
+
+Output JSON only with this schema (numbers only, no explanations in prose):
+
+For a SINGLE county:
+{
+  "adj_raw": float,                  // in [-1, 1], before damping
+  "adj": float,                      // after bounds & damping rule above
+  "pred_yield_bu_ac": float,         // = ml_pred * (1 + adj)
+  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj)
+  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj)
+  "drivers": [ "short phrase", ... ] // 3–5 concise drivers referencing ONLY allowed fields
+}
+
+For MULTIPLE counties (differentiated by FIPS):
+{
+  "<fips_code>": {
+    "adj_raw": float,
+    "adj": float,
+    "pred_yield_bu_ac": float,
+    "low_80": float,
+    "high_80": float,
+    "drivers": [ "short phrase", ... ]
+  },
+  "<fips_code>": { ... },
+  ...
+}
+
+No chain-of-thought. Do not explain your reasoning; just fill the JSON.
+
+If required fields are missing (e.g., ml_pred, ml_band_width, train_rmse), return:
+{"adj_raw": 0.0, "adj": 0.0, "pred_yield_bu_ac": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
+
+FIPS codes should be strings (e.g., "27129" not 27129).
+
+================================================================================
+USER PROMPT (for Grok)
+================================================================================
+
+Analyze this corn production factsheet and provide a bounded adjustment to the ML baseline prediction.
+
+County FIPS: 27037
+
+ML Meta:
+- ml_pred (bu/ac): 180.00
+- ml_band_width (U−L): 36.00
+- train_rmse: 18.00
+
+Fact Sheet Information:
+2024 population: 453,156 people
+13,274 people 38.4 years
+3.0% increase state: 38.6 years
+Number Percent
+Under 5 years 27,633 6.1%
+5-14 years 62,412 13.8%
+15-24 years 54,524 12.0%
+25-34 years 57,778 12.8%
+35-44 years 64,097 14.1%
+45-54 years 56,781 12.5%
+55-64 years 60,333 13.3%
+65-74 years 42,150 9.3%
+75-84 years 19,500 4.3%
+85 years & over 7,947 1.8%
+Total Population 453,156 100.0%
+Births Deaths Total
+Dakota Co. 13,276 7,219 20,951 13,732 5,766
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 43,046 9.7% 9,858 29.7% 8.6% 24.7%
+Europe 3,775 8.8% -263 -6.5% 8.8% -3.4%
+Asia 15,118 35.1% 2,981 24.6% 35.7% 18.1%
+Africa 11,237 26.1% 5,217 86.7% 28.3% 78.8%
+Oceania 159 0.4% 87 120.8% 0.4% 5.4%
+Americas: 12,757 29.6% 1,836 16.8% 26.7% 8.7%
+Latin America 11,860 27.6% 2,458 26.1% 24.2% 9.7%
+Northern America 897 2.1% -622 -40.9% 2.5% 0.4%Dakota Co. enjoyed a natural increase - more births than deaths from 2020 to 2024, but also experienced net in-migration - meaning more 
+people moved in than moved out. In addition to domestic in-migration, Dakota Co. welcomed net international in-migration - gaining new 
+Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Dakota Co. has a larger percentage of foreign-born residents. From 2013 to 2023, Dakota Co. saw an increase in the 
+number of foreign-born residents, which was faster than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Dakota Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Dakota Co. is a part of Economic Development Region 11, which is located in the Twin 
+Cities Planning Region.Dakota Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+62
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program5,704
+81,091Dakota Co. is the 3rd largest of the 87 counties in the state. Its population increased so far this decade, ranking as the 17th fastest growing in 
+the state from 2020 to 2024. Dakota Co.'s population has a younger median age than the state and a smaller percentage of people aged 65 
+years and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+27,585
+59,596
+44,867
+54,030
+68,194
+49,249
+26,137
+14,842
+8,502
+2,90227,633
+62,412
+54,524
+57,778
+64,097
+56,781
+60,333
+42,150
+19,500
+7,947Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+9%
+35%
+26%0%
+28%2%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+442,204 100.0% 9.9% 100.0% 6.8%
+335,999 76.0% -2.1% 78.4% -2.2%
+32,429 7.3% 63.0% 6.8% 38.9%
+1,661 0.4% 5.5% 0.9% -11.6%
+ 23,128 5.2% 26.9% 5.1% 29.6%
+16,983 3.8% 91.3% 2.7% 96.1%
+32,004 7.2% 199.9% 6.2% 168.3%
+37,321 8.4% 50.3% 6.2% 37.5%
+Dakota Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change458,774    501,866          
+Under 5 years 27,043            28,954              1,911 7.1%
+5-14 years 59,937            61,075              1,138 1.9%
+15-24 years 55,558            57,949              2,391 4.3%
+25-34 years 57,693            63,618              5,925 10.3%
+35-44 years 65,229            69,527              4,298 6.6%
+45-54 years 56,793            68,184              11,391 20.1%
+55-64 years 55,873            52,414              -3,459 -6.2%
+65-74 years 46,266            47,603              1,337 2.9%
+75-84 years 25,330            37,611              12,281 48.5%
+85 years & over 9,052              14,931              5,879 64.9%
+Total Population 458,774       501,866          43,092 9.4%
+73.6%
+68.8%
+11.2%
+28.6%
+13.2%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Dakota Co. has a higher percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a higher 
+percentage of people with at least some college experience. Dakota Co. also has a higher percentage of people with an Associate's degree 
+and a higher percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:94.6%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Dakota Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Dakota Co.'s population is expected to grow from 2025 to 2035, with a rate of change 
+that is faster than the projected statewide growth rate (3.7%). In addition to the overall growth, the number of people aged 65 years and 
+older is expected to increase over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSDakota Co.'s population was becoming more racially diverse over time. Since 2013, the white population declined, but the number of people 
+of other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Dakota Co. Minnesota
+5%
+21%
+21%
+11%29%13%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree76.0%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 100,000 200,000 300,000 400,000 500,000 600,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+249,927 available workers
+20,515 workers
+8.9% increase
+2.5% unemployment rate
+2.8% state
+6,248 unemployed workers
+Dakota Co.
+Average of 5,072 Average of 1,008 Average of 1,803
+new workers per year new workers per year new workers per year
+2025 2035
+16 to 24 years 35,161 36,968
+25 to 54 years 162,194 181,764
+55 to 64 years 43,155 40,483
+65 years & over 15,284 16,705
+Total Labor Force 255,794 275,920Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Dakota Co. averaged an 
+annual gain of new workers from 2000 to 2010, and most recently a gain of new workers since 2010 (see Figure 7). Moving forward, Dakota 
+Co. is expected to add workers from 2025 to 2035 (see Table 6).COUNTY PROFILE Dakota Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 2.5%, Dakota Co. had a lower unemployment rate than 
+the state in 2024. After the pandemic recession Dakota 
+Co.'s unemployment rate declined compared to the 2.9% 
+pre-pandemic rate posted in 2019. The number of 
+unemployed workers actively seeking work in Dakota Co. 
+increased over the past year, and is down compared to 
+2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Twin Cities returned to pre-pandemic levels, 
+but employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-4,1204,046 3,956
+752
+-6,000-4,000-2,00002,0004,0006,0008,0001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,802229,412245,293
+241,173249,927
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+215,000220,000225,000230,000235,000240,000245,000250,000255,0002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Dakota Co.
+1.2
+1.0 1.0
+0.7
+0.50.61.8
+0.50.40.50.7
+0.00.51.01.52.0
+ - 20,000 40,000 60,000 80,000 100,000 120,000 140,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Twin Cities Metro Area Vacancies
+Twin Cities Metro Area Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+248,919 71.7% 3.6% 68.5% 3.9% 129,474 119,277
+11,957 55.6% 8.8% 52.7% 9.9% 5,880 6,082
+20,559 83.8% 6.2% 83.4% 6.5% 10,453 10,112
+106,814 89.8% 3.4% 88.7% 3.5% 56,249 50,597
+50,533 91.2% 1.9% 87.8% 2.9% 26,383 24,158
+45,474 77.2% 3.6% 72.8% 3.0% 23,512 21,972
+11,846 28.8% 3.4% 27.8% 3.4% 6,185 5,646
+1,527 5.7% 1.2% 6.6% 3.1% 812 710
+192,068 70.0% 3.1% 67.5% 3.4% White alone 77.2%
+18,059 79.4% 6.3% 71.0% 8.4% Black or African American 7.3%
+1,030 76.9% 4.8% 57.7% 11.4% American Indian & Alaska Native 0.4%
+13,666 76.4% 3.2% 74.6% 3.5% Asian or Other Pac. Islanders 5.5%
+9,568 79.0% 4.6% 75.9% 5.6% Some Other Race 3.8%
+14,306 76.5% 6.4% 74.2% 6.1% Two or More Races 5.7%
+19,879 78.7% 6.1% 77.1% 5.9%
+13,625 60.4% 10.5% 55.3% 9.5%
+202,896 87.0% 3.1% 84.4% 3.3%
+7,660 76.4% 4.5% 67.1% 4.7%
+32,433 78.9% 2.5% 76.5% 2.6%
+63,915 87.7% 3.4% 85.0% 3.6%
+98,937 90.6% 2.0% 90.5% 2.0%
+Number Percent Number Percent
+233,371 99.0% 2,870,678 97.8%
+136,015 57.7% 1,984,232 67.6%
+97,356 41.3% 886,447 30.2%
+2,357 1.0% 64,576 2.2%
+181,511 77.0% 2,286,563 77.9%
+4,007 1.7% 61,640 2.1%
+5,657 2.4% 120,345 4.1%
+44,553 18.9% 463,770 15.8%
+29,702 12.6% 478,446 16.3%
+67,654 28.7% 924,605 31.5%
+57,518 24.4% 651,626 22.2%
+56,103 23.8% 551,828 18.8%
+15,558 6.6% 176,115 6.0%
+9,193 3.9% 149,698 5.1%
+24.1 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanDakota Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKDakota Co. had a higher labor force participation rate than the state. The labor force in Dakota Co. is more racially diverse than the state 
+(where 80.0% of workers are white alone), but is becoming more diverse over time.
+A smaller percentage of workers in Dakota Co. worked in the same county in which they live compared to the state. Dakota Co. also had a 
+longer average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesDakota Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Dakota Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+3.8%
+8.4%
+19.3%
+28.5%
+15.0%
+24.9%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Dakota Co. Minnesota77.2%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$105,212
+state $87,556
+$130,111
+state $111,492
+$50,901
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Dakota Co. $39,902 $19.18 $0 $417 $158 $1,345 $558 $408 $439
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Dakota Co. $75,803 $24.30 $658 $949 $567 $1,669 $992 $606 $876
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+129,327 100.0% 100.0%
+3,444 2.7% 4.0%
+1,999 1.5% 4.0%
+2,170 1.7% 6.2%
+5,313 4.1% 8.9%
+30,579 23.6% 25.7%
+58,620 45.3% 33.6%
+27,202 21.0% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$362,100
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent20.2%
+49.3%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$2,074COUNTY PROFILE Dakota Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Dakota Co.Median Household Income
+Median Family Income
+$1,497The cost of living has increased over the past 2 years with costs up in many areas. Dakota Co. had a higher cost of living than the state, with a 
+required hourly wage of $19.18 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of $24.3 
+for a typical family with 2 adults and 1 child (see Table 9).
+Dakota Co. had a higher median house value than the state, having the 5th highest value of the 87 counties in 2022. Dakota Co.'s housing 
+stock was newer than the state's, with a higher percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeDakota Co. had a higher median household income than the state, and a lower percentage of households with incomes below $50,000. 
+Overall, Dakota Co. had the 5th highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs8.0%
+11.7%12.8%
+15.4%13.8%
+15.7%12.9%
+13.5%21.8%
+19.7%30.6%
+24.0%Dakota Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+10.3%
+15.2%
+39.3%
+24.2%
+7.1%
+3.9%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 20% 40% 60%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Dakota Co. Minnesota
+23.9%
+14.3%
+12.5% 9.8%39.5%
+53.3%
+15.8%10.7%6.2%14.0%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$28.48     1,762,280 100.0% 1.0 $26.22      2,920,470 100.0%
+$63.62     130,080 7.4% 1.1 $59.38 200,060 6.9%
+$41.34     151,080 8.6% 1.2 $39.95 208,210 7.1%
+$51.35       71,750 4.1% 1.2 $50.02 97,460 3.3%
+$47.56       40,480 2.3% 1.2 $45.03 57,950 2.0%
+$40.63       18,450 1.0% 1.0 $38.33 32,150 1.1%
+$30.01       34,680 2.0% 1.0 $29.82 59,290 2.0%
+$53.02       16,390 0.9% 1.3 $49.52 20,750 0.7%
+$28.44       98,540 5.6% 1.0 $27.84 170,270 5.8%
+$30.28       24,600 1.4% 1.1 $28.84 36,030 1.2%
+$48.50     105,470 6.0% 0.9 $46.51 187,480 6.4%
+$18.64     110,250 6.3% 1.0 $18.67 176,750 6.1%
+$29.42       27,730 1.6% 1.0 $29.37 46,960 1.6%
+$16.93     141,110 8.0% 1.0 $16.05 240,830 8.2%
+$19.44       46,640 2.6% 0.9 $19.16 81,700 2.8%
+$17.89       39,470 2.2% 1.0 $17.54 63,300 2.2%
+$21.11     143,270 8.1% 1.0 $18.66 244,780 8.4%
+$24.71     204,770 11.6% 1.0 $24.07 340,040 11.6%
+$22.71             930 0.1% 0.5 $23.48 3,300 0.1%
+$38.33       59,580 3.4% 0.9 $34.20 114,050 3.9%
+$31.26       56,240 3.2% 0.9 $30.40 105,650 3.6%
+$24.01     110,390 6.3% 0.9 $23.56 205,220 7.0%
+$23.20     130,360 7.4% 0.9 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+66,411 $22.30
+4,460 $42.50
+3,525 $33.68
+2,465 $52.17
+1,449 $42.92
+586 $31.86
+2,687 $23.98
+3,109 $23.24
+7,696 $35.69
+4,904 $18.91
+769 $17.16
+10,433 $15.83
+1,016 $17.91
+2,189 $17.36
+7,399 $18.30
+2,971 $19.96
+779 $25.58
+2,284 $24.75
+2,014 $23.61
+3,175 $19.91 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $28.48 in 2024, wages were higher in Region 11 than the state. Overall, Region 11 had the highest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($63.62) and lowest for food preparation and 
+serving related jobs ($16.93) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Dakota Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 11 State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Twin Cities Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairDakota Co. is a part of the Twin Cities planning region. There were 66411 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryMining 
+0%Construction 
+4%
+Manufacturing 
+6%Utilities 
+0%
+Wholesale Trade 
+4%
+Retail Trade 
+12%Transportatio
+n and 
+Warehousing 
+2%
+Informati
+on 
+1%Finance and 
+Insurance 
+2%Real 
+Estate and 
+Rental 
+and 
+Leasing 
+1%Professional 
+and Technical 
+Services 
+8%Management 
+of Companies 
+and 
+Enterprises Administrative 
+and Waste 
+Services 
+1%Educational 
+Services 
+7%Health Care 
+and Social 
+Assistance 
+26%Arts, 
+Entertainment, 
+and Recreation 
+4%Accommodatio
+n and Food 
+Services 
+16%Other Services, 
+Ex. Public Admin 
+2%Public 
+Administration 
+3%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Home Health and Personal 
+Care Aides
+$35,514/yr
+Retail Salespersons
+$36,304/yr
+Customer Service 
+Representatives
+$49,374/yr
+First-Line Supervisors of 
+Food Preparation and 
+$45,909/yr
+Cashiers
+$34,855/yr
+Stockers and Order Fillers
+$39,688/yr
+Laborers and Freight, Stock, 
+and Material Movers, Hand
+$47,597/yr
+First-Line Supervisors of 
+Retail Sales Workers
+$49,788/yr
+Janitors and Cleaners, 
+Except Maids and 
+$39,304/yr
+Office Clerks, General
+$48,707/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+1,927,280       2,022,157   4.9% 94,877
+4,299                4,497         4.6% 198
+5,966                5,918         -0.8% -48
+76,624              81,639      6.5% 5,015
+175,365           178,983    2.1% 3,618
+88,950              95,889      7.8% 6,939
+155,453           153,000    -1.6% -2,453
+69,046              74,385      7.7% 5,339
+33,947              36,573      7.7% 2,626
+152,950           158,767    3.8% 5,817
+219,218           239,258    9.1% 20,040
+103,764           106,039    2.2% 2,275
+140,511           146,053    3.9% 5,542
+274,229           299,555    9.2% 25,326
+159,585           169,263    6.1% 9,678
+70,450              72,988      3.6% 2,538
+107,703           109,441    1.6% 1,738
+Source: DEED 2022-2032 Employment OutlookSubstance abuse, behavioral disorder, and 
+mental health counselors
+Licensed Practical and Licensed Vocational 
+Nurses
+Automotive Service Technicians and 
+Mechanics
+$49,721/yrNursing Assistants Registered Nurses Software Developers
+$46,080/yr $103,847/yr $131,741/yrCOUNTY PROFILE Dakota Co.
+OCCUPATIONS IN DEMAND
+Table 13. Twin Cities Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Heavy and Tractor-Trailer Truck Drivers Dental Hygienists Accountants and Auditors
+$64,047/yr $97,477/yr $81,809/yr
+Industrial Engineering 
+Technologists and TechniciansMarket Research Analysts and 
+Marketing Specialists
+$53,952/yr $69,564/yr $83,647/yr
+Financial Managers
+$58,858/yr $74,713/yr $165,961/yr
+$80,249/yr $103,880/yr
+MachinistsPolice and Sheriff's Patrol 
+OfficersElementary School Teachers, 
+Except Special EducationMedical AssistantsRadiologic Technologists and 
+TechniciansProject Management Specialists
+$52,350/yr $83,266/yr $101,522/yr
+Paralegals and Legal Assistants General and Operations Managers
+$61,708/yr $66,277/yr $106,095/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Twin Cities Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityDakota Co. is a part of the Twin Cities planning region, which is projected to see a 4.9% increase in employment levels over the next decade. 
+In addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$66,022/yr
+$65,327/yrComputer User Support Specialists Surgical Technologists Industrial Engineers
+Pharmacy TechniciansVeterinary Assistants and 
+Laboratory Animal CaretakersHuman Resources Specialists
+$42,360/yr $79,466/yr
+Source: DEED Occupations in DemandBookkeeping, Accounting, and Auditing 
+ClerksVeterinary Technologists and 
+TechniciansManagement Analysts
+$54,327/yr $48,503/yr $100,289/yr
+Electrical and Electronic 
+Engineering Technologists and 
+$63,126/yr $95,455/yr
+12,037
+11,545
+13,541
+4,226
+1,857
+3,296
+1,085
+5,935
+1,852
+8,555
+13,760
+1,022
+5,127
+2,054
+4,361
+533
+-11,947
+-45
+4,595
+3,432
+-1,160
+9,21645,554
+52,761
+19,580
+12,502
+4,002
+15,875
+4,921
+48,634
+15,251
+34,125
+83,254
+15,330
+115,650
+35,534
+35,857
+86,129
+122,414
+1,917
+24,853
+23,829
+48,025
+75,028-50,000 0 50,000 100,000 150,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+11,921 business establishments annual average wage
+189,051 jobs total industry payroll
+11,023 jobs  
+6.2% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+189,051 100.0% $72,816 Total, All Industries 0.4%
+1,125 0.6% $43,014 Agriculture, Forestry, Fish & Hunt 2.3%
+110 0.1% $119,820 Mining 0.9%
+10,526 5.6% $110,757 Construction -2.4%
+19,590 10.4% $89,850 Manufacturing -0.9%
+555 0.3% $155,036 Utilities 4.1%
+8,910 4.7% $94,159 Wholesale Trade -0.4%
+24,004 12.7% $39,600 Retail Trade 0.6%
+14,478 7.7% $74,217 Transportation & Warehousing -2.0%
+5,054 2.7% $114,496 Information -4.4%
+9,220 4.9% $115,851 Finance & Insurance -3.8%
+2,201 1.2% $69,426 Real Estate & Rental & Leasing -2.6%
+7,684 4.1% $109,105 Professional & Technical Services -5.6%
+4,484 2.4% $160,983 Management of Companies 1.0%
+7,753 4.1% $52,153 Admin. Support & Waste Mgmt. Svcs. -8.1%
+14,250 7.5% $61,260 Educational Services 2.7%
+25,838 13.7% $57,205 Health Care & Social Assistance 6.6%
+3,990 2.1% $123,405 Arts, Entertainment, & Recreation 3.7%
+15,550 8.2% $26,527 Accommodation & Food Services 1.5%
+7,424 3.9% $46,077 Other Services 4.3%
+6,302 3.3% $73,970 Public Administration 6.9%
+For more information on Dakota Co.'s population, labor force, and economic trends, contact:
+Tim O'Neill Regional Analyst, Twin Cities Metro
+DEED Headquarters  |  180 E 5th St., Suite 1200  |  St. Paul MN 55101
+Office: 651-259-7401 Email: timothy.oneill@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Dakota Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Dakota Co. had the 3rd largest economy of the 87 counties in the 
+state. Dakota Co. was the 48th fastest growing in the past year and the 42nd fastest growing since 2019. From 2019 to 2024, employment in 
+Dakota Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Dakota Co. Industry 
+Employment Statistics, 2024Job change,                    
+2019-2024$72,816
+$13,765,949,057
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration0.4%
+2.3%
+0.9%
+-2.4%
+-0.9%
+4.1%
+-0.4%
+0.6%
+-2.0%
+-4.4%
+-3.8%
+-2.6%
+-5.6%
+1.0%
+-8.1%
+2.7%
+6.6%
+3.7%
+1.5%
+4.3%
+6.9%-10.0% -5.0% 0.0% 5.0% 10.0%Figure 17. Change in Jobs, 2023 -2024170,908174,613
+168,868191,499
+178,028189,051
+2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+150,000160,000170,000180,000190,000200,000
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Dakota Co. Minnesota
+
+Provide your analysis as JSON following the required schema. Use ONLY the allowed fields from the fact sheet (economy, market, insurance, weather flags, NASS progress). Ignore any agronomic variables already modeled by ML.
+
+Return ONLY the JSON object, no other text.
+
+================================================================================
+FACT SHEET CONTENT (from PDF)
+================================================================================
+
+2024 population: 453,156 people
+13,274 people 38.4 years
+3.0% increase state: 38.6 years
+Number Percent
+Under 5 years 27,633 6.1%
+5-14 years 62,412 13.8%
+15-24 years 54,524 12.0%
+25-34 years 57,778 12.8%
+35-44 years 64,097 14.1%
+45-54 years 56,781 12.5%
+55-64 years 60,333 13.3%
+65-74 years 42,150 9.3%
+75-84 years 19,500 4.3%
+85 years & over 7,947 1.8%
+Total Population 453,156 100.0%
+Births Deaths Total
+Dakota Co. 13,276 7,219 20,951 13,732 5,766
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 43,046 9.7% 9,858 29.7% 8.6% 24.7%
+Europe 3,775 8.8% -263 -6.5% 8.8% -3.4%
+Asia 15,118 35.1% 2,981 24.6% 35.7% 18.1%
+Africa 11,237 26.1% 5,217 86.7% 28.3% 78.8%
+Oceania 159 0.4% 87 120.8% 0.4% 5.4%
+Americas: 12,757 29.6% 1,836 16.8% 26.7% 8.7%
+Latin America 11,860 27.6% 2,458 26.1% 24.2% 9.7%
+Northern America 897 2.1% -622 -40.9% 2.5% 0.4%Dakota Co. enjoyed a natural increase - more births than deaths from 2020 to 2024, but also experienced net in-migration - meaning more 
+people moved in than moved out. In addition to domestic in-migration, Dakota Co. welcomed net international in-migration - gaining new 
+Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Dakota Co. has a larger percentage of foreign-born residents. From 2013 to 2023, Dakota Co. saw an increase in the 
+number of foreign-born residents, which was faster than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Dakota Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Dakota Co. is a part of Economic Development Region 11, which is located in the Twin 
+Cities Planning Region.Dakota Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+62
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program5,704
+81,091Dakota Co. is the 3rd largest of the 87 counties in the state. Its population increased so far this decade, ranking as the 17th fastest growing in 
+the state from 2020 to 2024. Dakota Co.'s population has a younger median age than the state and a smaller percentage of people aged 65 
+years and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+27,585
+59,596
+44,867
+54,030
+68,194
+49,249
+26,137
+14,842
+8,502
+2,90227,633
+62,412
+54,524
+57,778
+64,097
+56,781
+60,333
+42,150
+19,500
+7,947Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+9%
+35%
+26%0%
+28%2%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+442,204 100.0% 9.9% 100.0% 6.8%
+335,999 76.0% -2.1% 78.4% -2.2%
+32,429 7.3% 63.0% 6.8% 38.9%
+1,661 0.4% 5.5% 0.9% -11.6%
+ 23,128 5.2% 26.9% 5.1% 29.6%
+16,983 3.8% 91.3% 2.7% 96.1%
+32,004 7.2% 199.9% 6.2% 168.3%
+37,321 8.4% 50.3% 6.2% 37.5%
+Dakota Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change458,774    501,866          
+Under 5 years 27,043            28,954              1,911 7.1%
+5-14 years 59,937            61,075              1,138 1.9%
+15-24 years 55,558            57,949              2,391 4.3%
+25-34 years 57,693            63,618              5,925 10.3%
+35-44 years 65,229            69,527              4,298 6.6%
+45-54 years 56,793            68,184              11,391 20.1%
+55-64 years 55,873            52,414              -3,459 -6.2%
+65-74 years 46,266            47,603              1,337 2.9%
+75-84 years 25,330            37,611              12,281 48.5%
+85 years & over 9,052              14,931              5,879 64.9%
+Total Population 458,774       501,866          43,092 9.4%
+73.6%
+68.8%
+11.2%
+28.6%
+13.2%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Dakota Co. has a higher percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a higher 
+percentage of people with at least some college experience. Dakota Co. also has a higher percentage of people with an Associate's degree 
+and a higher percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:94.6%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Dakota Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Dakota Co.'s population is expected to grow from 2025 to 2035, with a rate of change 
+that is faster than the projected statewide growth rate (3.7%). In addition to the overall growth, the number of people aged 65 years and 
+older is expected to increase over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSDakota Co.'s population was becoming more racially diverse over time. Since 2013, the white population declined, but the number of people 
+of other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Dakota Co. Minnesota
+5%
+21%
+21%
+11%29%13%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree76.0%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 100,000 200,000 300,000 400,000 500,000 600,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+249,927 available workers
+20,515 workers
+8.9% increase
+2.5% unemployment rate
+2.8% state
+6,248 unemployed workers
+Dakota Co.
+Average of 5,072 Average of 1,008 Average of 1,803
+new workers per year new workers per year new workers per year
+2025 2035
+16 to 24 years 35,161 36,968
+25 to 54 years 162,194 181,764
+55 to 64 years 43,155 40,483
+65 years & over 15,284 16,705
+Total Labor Force 255,794 275,920Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Dakota Co. averaged an 
+annual gain of new workers from 2000 to 2010, and most recently a gain of new workers since 2010 (see Figure 7). Moving forward, Dakota 
+Co. is expected to add workers from 2025 to 2035 (see Table 6).COUNTY PROFILE Dakota Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 2.5%, Dakota Co. had a lower unemployment rate than 
+the state in 2024. After the pandemic recession Dakota 
+Co.'s unemployment rate declined compared to the 2.9% 
+pre-pandemic rate posted in 2019. The number of 
+unemployed workers actively seeking work in Dakota Co. 
+increased over the past year, and is down compared to 
+2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Twin Cities returned to pre-pandemic levels, 
+but employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-4,1204,046 3,956
+752
+-6,000-4,000-2,00002,0004,0006,0008,0001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,802229,412245,293
+241,173249,927
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+215,000220,000225,000230,000235,000240,000245,000250,000255,0002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Dakota Co.
+1.2
+1.0 1.0
+0.7
+0.50.61.8
+0.50.40.50.7
+0.00.51.01.52.0
+ - 20,000 40,000 60,000 80,000 100,000 120,000 140,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Twin Cities Metro Area Vacancies
+Twin Cities Metro Area Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+248,919 71.7% 3.6% 68.5% 3.9% 129,474 119,277
+11,957 55.6% 8.8% 52.7% 9.9% 5,880 6,082
+20,559 83.8% 6.2% 83.4% 6.5% 10,453 10,112
+106,814 89.8% 3.4% 88.7% 3.5% 56,249 50,597
+50,533 91.2% 1.9% 87.8% 2.9% 26,383 24,158
+45,474 77.2% 3.6% 72.8% 3.0% 23,512 21,972
+11,846 28.8% 3.4% 27.8% 3.4% 6,185 5,646
+1,527 5.7% 1.2% 6.6% 3.1% 812 710
+192,068 70.0% 3.1% 67.5% 3.4% White alone 77.2%
+18,059 79.4% 6.3% 71.0% 8.4% Black or African American 7.3%
+1,030 76.9% 4.8% 57.7% 11.4% American Indian & Alaska Native 0.4%
+13,666 76.4% 3.2% 74.6% 3.5% Asian or Other Pac. Islanders 5.5%
+9,568 79.0% 4.6% 75.9% 5.6% Some Other Race 3.8%
+14,306 76.5% 6.4% 74.2% 6.1% Two or More Races 5.7%
+19,879 78.7% 6.1% 77.1% 5.9%
+13,625 60.4% 10.5% 55.3% 9.5%
+202,896 87.0% 3.1% 84.4% 3.3%
+7,660 76.4% 4.5% 67.1% 4.7%
+32,433 78.9% 2.5% 76.5% 2.6%
+63,915 87.7% 3.4% 85.0% 3.6%
+98,937 90.6% 2.0% 90.5% 2.0%
+Number Percent Number Percent
+233,371 99.0% 2,870,678 97.8%
+136,015 57.7% 1,984,232 67.6%
+97,356 41.3% 886,447 30.2%
+2,357 1.0% 64,576 2.2%
+181,511 77.0% 2,286,563 77.9%
+4,007 1.7% 61,640 2.1%
+5,657 2.4% 120,345 4.1%
+44,553 18.9% 463,770 15.8%
+29,702 12.6% 478,446 16.3%
+67,654 28.7% 924,605 31.5%
+57,518 24.4% 651,626 22.2%
+56,103 23.8% 551,828 18.8%
+15,558 6.6% 176,115 6.0%
+9,193 3.9% 149,698 5.1%
+24.1 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanDakota Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKDakota Co. had a higher labor force participation rate than the state. The labor force in Dakota Co. is more racially diverse than the state 
+(where 80.0% of workers are white alone), but is becoming more diverse over time.
+A smaller percentage of workers in Dakota Co. worked in the same county in which they live compared to the state. Dakota Co. also had a 
+longer average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesDakota Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Dakota Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+3.8%
+8.4%
+19.3%
+28.5%
+15.0%
+24.9%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Dakota Co. Minnesota77.2%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$105,212
+state $87,556
+$130,111
+state $111,492
+$50,901
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Dakota Co. $39,902 $19.18 $0 $417 $158 $1,345 $558 $408 $439
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Dakota Co. $75,803 $24.30 $658 $949 $567 $1,669 $992 $606 $876
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+129,327 100.0% 100.0%
+3,444 2.7% 4.0%
+1,999 1.5% 4.0%
+2,170 1.7% 6.2%
+5,313 4.1% 8.9%
+30,579 23.6% 25.7%
+58,620 45.3% 33.6%
+27,202 21.0% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$362,100
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent20.2%
+49.3%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$2,074COUNTY PROFILE Dakota Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Dakota Co.Median Household Income
+Median Family Income
+$1,497The cost of living has increased over the past 2 years with costs up in many areas. Dakota Co. had a higher cost of living than the state, with a 
+required hourly wage of $19.18 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of $24.3 
+for a typical family with 2 adults and 1 child (see Table 9).
+Dakota Co. had a higher median house value than the state, having the 5th highest value of the 87 counties in 2022. Dakota Co.'s housing 
+stock was newer than the state's, with a higher percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeDakota Co. had a higher median household income than the state, and a lower percentage of households with incomes below $50,000. 
+Overall, Dakota Co. had the 5th highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs8.0%
+11.7%12.8%
+15.4%13.8%
+15.7%12.9%
+13.5%21.8%
+19.7%30.6%
+24.0%Dakota Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+10.3%
+15.2%
+39.3%
+24.2%
+7.1%
+3.9%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 20% 40% 60%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Dakota Co. Minnesota
+23.9%
+14.3%
+12.5% 9.8%39.5%
+53.3%
+15.8%10.7%6.2%14.0%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$28.48     1,762,280 100.0% 1.0 $26.22      2,920,470 100.0%
+$63.62     130,080 7.4% 1.1 $59.38 200,060 6.9%
+$41.34     151,080 8.6% 1.2 $39.95 208,210 7.1%
+$51.35       71,750 4.1% 1.2 $50.02 97,460 3.3%
+$47.56       40,480 2.3% 1.2 $45.03 57,950 2.0%
+$40.63       18,450 1.0% 1.0 $38.33 32,150 1.1%
+$30.01       34,680 2.0% 1.0 $29.82 59,290 2.0%
+$53.02       16,390 0.9% 1.3 $49.52 20,750 0.7%
+$28.44       98,540 5.6% 1.0 $27.84 170,270 5.8%
+$30.28       24,600 1.4% 1.1 $28.84 36,030 1.2%
+$48.50     105,470 6.0% 0.9 $46.51 187,480 6.4%
+$18.64     110,250 6.3% 1.0 $18.67 176,750 6.1%
+$29.42       27,730 1.6% 1.0 $29.37 46,960 1.6%
+$16.93     141,110 8.0% 1.0 $16.05 240,830 8.2%
+$19.44       46,640 2.6% 0.9 $19.16 81,700 2.8%
+$17.89       39,470 2.2% 1.0 $17.54 63,300 2.2%
+$21.11     143,270 8.1% 1.0 $18.66 244,780 8.4%
+$24.71     204,770 11.6% 1.0 $24.07 340,040 11.6%
+$22.71             930 0.1% 0.5 $23.48 3,300 0.1%
+$38.33       59,580 3.4% 0.9 $34.20 114,050 3.9%
+$31.26       56,240 3.2% 0.9 $30.40 105,650 3.6%
+$24.01     110,390 6.3% 0.9 $23.56 205,220 7.0%
+$23.20     130,360 7.4% 0.9 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+66,411 $22.30
+4,460 $42.50
+3,525 $33.68
+2,465 $52.17
+1,449 $42.92
+586 $31.86
+2,687 $23.98
+3,109 $23.24
+7,696 $35.69
+4,904 $18.91
+769 $17.16
+10,433 $15.83
+1,016 $17.91
+2,189 $17.36
+7,399 $18.30
+2,971 $19.96
+779 $25.58
+2,284 $24.75
+2,014 $23.61
+3,175 $19.91 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $28.48 in 2024, wages were higher in Region 11 than the state. Overall, Region 11 had the highest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($63.62) and lowest for food preparation and 
+serving related jobs ($16.93) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Dakota Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 11 State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Twin Cities Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairDakota Co. is a part of the Twin Cities planning region. There were 66411 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryMining 
+0%Construction 
+4%
+Manufacturing 
+6%Utilities 
+0%
+Wholesale Trade 
+4%
+Retail Trade 
+12%Transportatio
+n and 
+Warehousing 
+2%
+Informati
+on 
+1%Finance and 
+Insurance 
+2%Real 
+Estate and 
+Rental 
+and 
+Leasing 
+1%Professional 
+and Technical 
+Services 
+8%Management 
+of Companies 
+and 
+Enterprises Administrative 
+and Waste 
+Services 
+1%Educational 
+Services 
+7%Health Care 
+and Social 
+Assistance 
+26%Arts, 
+Entertainment, 
+and Recreation 
+4%Accommodatio
+n and Food 
+Services 
+16%Other Services, 
+Ex. Public Admin 
+2%Public 
+Administration 
+3%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Home Health and Personal 
+Care Aides
+$35,514/yr
+Retail Salespersons
+$36,304/yr
+Customer Service 
+Representatives
+$49,374/yr
+First-Line Supervisors of 
+Food Preparation and 
+$45,909/yr
+Cashiers
+$34,855/yr
+Stockers and Order Fillers
+$39,688/yr
+Laborers and Freight, Stock, 
+and Material Movers, Hand
+$47,597/yr
+First-Line Supervisors of 
+Retail Sales Workers
+$49,788/yr
+Janitors and Cleaners, 
+Except Maids and 
+$39,304/yr
+Office Clerks, General
+$48,707/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+1,927,280       2,022,157   4.9% 94,877
+4,299                4,497         4.6% 198
+5,966                5,918         -0.8% -48
+76,624              81,639      6.5% 5,015
+175,365           178,983    2.1% 3,618
+88,950              95,889      7.8% 6,939
+155,453           153,000    -1.6% -2,453
+69,046              74,385      7.7% 5,339
+33,947              36,573      7.7% 2,626
+152,950           158,767    3.8% 5,817
+219,218           239,258    9.1% 20,040
+103,764           106,039    2.2% 2,275
+140,511           146,053    3.9% 5,542
+274,229           299,555    9.2% 25,326
+159,585           169,263    6.1% 9,678
+70,450              72,988      3.6% 2,538
+107,703           109,441    1.6% 1,738
+Source: DEED 2022-2032 Employment OutlookSubstance abuse, behavioral disorder, and 
+mental health counselors
+Licensed Practical and Licensed Vocational 
+Nurses
+Automotive Service Technicians and 
+Mechanics
+$49,721/yrNursing Assistants Registered Nurses Software Developers
+$46,080/yr $103,847/yr $131,741/yrCOUNTY PROFILE Dakota Co.
+OCCUPATIONS IN DEMAND
+Table 13. Twin Cities Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Heavy and Tractor-Trailer Truck Drivers Dental Hygienists Accountants and Auditors
+$64,047/yr $97,477/yr $81,809/yr
+Industrial Engineering 
+Technologists and TechniciansMarket Research Analysts and 
+Marketing Specialists
+$53,952/yr $69,564/yr $83,647/yr
+Financial Managers
+$58,858/yr $74,713/yr $165,961/yr
+$80,249/yr $103,880/yr
+MachinistsPolice and Sheriff's Patrol 
+OfficersElementary School Teachers, 
+Except Special EducationMedical AssistantsRadiologic Technologists and 
+TechniciansProject Management Specialists
+$52,350/yr $83,266/yr $101,522/yr
+Paralegals and Legal Assistants General and Operations Managers
+$61,708/yr $66,277/yr $106,095/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Twin Cities Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityDakota Co. is a part of the Twin Cities planning region, which is projected to see a 4.9% increase in employment levels over the next decade. 
+In addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$66,022/yr
+$65,327/yrComputer User Support Specialists Surgical Technologists Industrial Engineers
+Pharmacy TechniciansVeterinary Assistants and 
+Laboratory Animal CaretakersHuman Resources Specialists
+$42,360/yr $79,466/yr
+Source: DEED Occupations in DemandBookkeeping, Accounting, and Auditing 
+ClerksVeterinary Technologists and 
+TechniciansManagement Analysts
+$54,327/yr $48,503/yr $100,289/yr
+Electrical and Electronic 
+Engineering Technologists and 
+$63,126/yr $95,455/yr
+12,037
+11,545
+13,541
+4,226
+1,857
+3,296
+1,085
+5,935
+1,852
+8,555
+13,760
+1,022
+5,127
+2,054
+4,361
+533
+-11,947
+-45
+4,595
+3,432
+-1,160
+9,21645,554
+52,761
+19,580
+12,502
+4,002
+15,875
+4,921
+48,634
+15,251
+34,125
+83,254
+15,330
+115,650
+35,534
+35,857
+86,129
+122,414
+1,917
+24,853
+23,829
+48,025
+75,028-50,000 0 50,000 100,000 150,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+11,921 business establishments annual average wage
+189,051 jobs total industry payroll
+11,023 jobs  
+6.2% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+189,051 100.0% $72,816 Total, All Industries 0.4%
+1,125 0.6% $43,014 Agriculture, Forestry, Fish & Hunt 2.3%
+110 0.1% $119,820 Mining 0.9%
+10,526 5.6% $110,757 Construction -2.4%
+19,590 10.4% $89,850 Manufacturing -0.9%
+555 0.3% $155,036 Utilities 4.1%
+8,910 4.7% $94,159 Wholesale Trade -0.4%
+24,004 12.7% $39,600 Retail Trade 0.6%
+14,478 7.7% $74,217 Transportation & Warehousing -2.0%
+5,054 2.7% $114,496 Information -4.4%
+9,220 4.9% $115,851 Finance & Insurance -3.8%
+2,201 1.2% $69,426 Real Estate & Rental & Leasing -2.6%
+7,684 4.1% $109,105 Professional & Technical Services -5.6%
+4,484 2.4% $160,983 Management of Companies 1.0%
+7,753 4.1% $52,153 Admin. Support & Waste Mgmt. Svcs. -8.1%
+14,250 7.5% $61,260 Educational Services 2.7%
+25,838 13.7% $57,205 Health Care & Social Assistance 6.6%
+3,990 2.1% $123,405 Arts, Entertainment, & Recreation 3.7%
+15,550 8.2% $26,527 Accommodation & Food Services 1.5%
+7,424 3.9% $46,077 Other Services 4.3%
+6,302 3.3% $73,970 Public Administration 6.9%
+For more information on Dakota Co.'s population, labor force, and economic trends, contact:
+Tim O'Neill Regional Analyst, Twin Cities Metro
+DEED Headquarters  |  180 E 5th St., Suite 1200  |  St. Paul MN 55101
+Office: 651-259-7401 Email: timothy.oneill@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Dakota Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Dakota Co. had the 3rd largest economy of the 87 counties in the 
+state. Dakota Co. was the 48th fastest growing in the past year and the 42nd fastest growing since 2019. From 2019 to 2024, employment in 
+Dakota Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Dakota Co. Industry 
+Employment Statistics, 2024Job change,                    
+2019-2024$72,816
+$13,765,949,057
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration0.4%
+2.3%
+0.9%
+-2.4%
+-0.9%
+4.1%
+-0.4%
+0.6%
+-2.0%
+-4.4%
+-3.8%
+-2.6%
+-5.6%
+1.0%
+-8.1%
+2.7%
+6.6%
+3.7%
+1.5%
+4.3%
+6.9%-10.0% -5.0% 0.0% 5.0% 10.0%Figure 17. Change in Jobs, 2023 -2024170,908174,613
+168,868191,499
+178,028189,051
+2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+150,000160,000170,000180,000190,000200,000
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Dakota Co. Minnesota
+
+================================================================================
+INSTRUCTIONS
+================================================================================
+
+1. Copy the SYSTEM PROMPT above and paste it as the system message in Grok
+2. Copy the USER PROMPT above and paste it as the user message in Grok
+3. Grok should return a JSON response with the required schema:
+   - adj_raw: float in [-1, 1]
+   - adj: float (after bounds & damping)
+   - pred_yield_bu_ac: float (= ml_pred * (1 + adj))
+   - low_80: float
+   - high_80: float
+   - drivers: array of 3-5 short phrases
+4. The adjustment uses alpha=0.15 and damping based on ML confidence
+5. Only use allowed fields from fact sheet (economy, market, insurance, weather flags, NASS progress)

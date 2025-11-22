@@ -1,0 +1,1940 @@
+================================================================================
+GROK PROMPT FOR MANUAL UPLOAD
+================================================================================
+
+COUNTY INFORMATION
+--------------------------------------------------------------------------------
+Rank: 1 (Top 10 Corn Production Counties)
+County: Renville
+FIPS Code: 27129
+Year: 2023
+Total Production (all years): 7,196,978,929 bushels
+
+ML BASELINE PREDICTION
+--------------------------------------------------------------------------------
+ML Baseline (total): 340,869,471 bushels
+ML Pred (bu/ac): 180.00
+ML Band Width: 36.00
+Train RMSE: 18.00
+P10 (10th percentile): 272,695,577 bushels
+P90 (90th percentile): 409,043,365 bushels
+Uncertainty Interval: [272,695,577, 409,043,365] bushels
+
+RECENT PRODUCTION HISTORY
+--------------------------------------------------------------------------------
+  2022: 375,738,412 bushels
+  2021: 301,812,000 bushels
+  2020: 345,058,000 bushels
+  2019: 312,487,000 bushels
+  2018: 305,592,000 bushels
+
+================================================================================
+SYSTEM PROMPT (for Grok)
+================================================================================
+
+You are a conservative adjustment module for county-level corn yield.
+
+Your ONLY inputs are a structured "factsheet" with exogenous signals that the ML model does not capture well.
+
+You must ignore agronomic variables already modeled by ML (soils, ethanol distance, historical yields, GLDAS/PRISM windowed indices, USDM, NDVI, etc.).
+
+Goal: Propose a small, bounded multiplicative adjustment to the provided ML baseline prediction based solely on the allowed facts.
+
+Hard constraints
+
+Use only these fields if present:
+
+economy_population, economy_unemployment_rate_pct, economy_available_workers,
+
+economy_required_hourly_wage_single_usd, economy_median_hourly_wage_region_usd,
+
+economy_median_household_income_usd, selected industry wage/size metrics.
+
+market_basis_anomaly_usd, elevator_outage_flag, rail_disruption_flag.
+
+prevented_planting_flag, pp_share_pct, insurance_disaster_flag.
+
+hail_event_flag, derecho_event_flag, localized_flood_flag.
+
+nass_planting_progress_pct, nass_harvest_progress_pct (weekly progress summaries).
+
+ML meta: ml_pred (bu/ac), ml_band_width (U−L), train_rmse.
+
+Forbidden: any soils, ethanol distance, recent yields, or windowed agronomic/drought/canopy variables. If such fields appear, ignore them.
+
+Compute a raw signed adjustment adj_raw in [-1, +1] reflecting only exogenous stress/support.
+
+Negative signals (examples): very high unemployment, severe labor shortages, high required_hourly_wage vs regional median, active logistics disruptions, hail/derecho flags, widespread prevented planting.
+
+Positive signals (examples): strong labor availability with low wage pressure and no disruptions.
+
+The final applied adjustment is bounded and damped by ML confidence:
+
+alpha = 0.15 (max magnitude).
+
+kappa = exp( - ml_band_width / train_rmse ).
+
+adj = clip(adj_raw, -alpha, +alpha) * (1 - kappa).
+
+Calibrated caution: If evidence is mixed or weak, set adj_raw = 0.0. Never exceed the bounds.
+
+Output JSON only with this schema (numbers only, no explanations in prose):
+
+For a SINGLE county:
+{
+  "adj_raw": float,                  // in [-1, 1], before damping
+  "adj": float,                      // after bounds & damping rule above
+  "pred_yield_bu_ac": float,         // = ml_pred * (1 + adj)
+  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj)
+  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj)
+  "drivers": [ "short phrase", ... ] // 3–5 concise drivers referencing ONLY allowed fields
+}
+
+For MULTIPLE counties (differentiated by FIPS):
+{
+  "<fips_code>": {
+    "adj_raw": float,
+    "adj": float,
+    "pred_yield_bu_ac": float,
+    "low_80": float,
+    "high_80": float,
+    "drivers": [ "short phrase", ... ]
+  },
+  "<fips_code>": { ... },
+  ...
+}
+
+No chain-of-thought. Do not explain your reasoning; just fill the JSON.
+
+If required fields are missing (e.g., ml_pred, ml_band_width, train_rmse), return:
+{"adj_raw": 0.0, "adj": 0.0, "pred_yield_bu_ac": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
+
+FIPS codes should be strings (e.g., "27129" not 27129).
+
+================================================================================
+USER PROMPT (for Grok)
+================================================================================
+
+Analyze this corn production factsheet and provide a bounded adjustment to the ML baseline prediction.
+
+County FIPS: 27129
+
+ML Meta:
+- ml_pred (bu/ac): 180.00
+- ml_band_width (U−L): 36.00
+- train_rmse: 18.00
+
+Fact Sheet Information:
+2024 population: 14,453 people
+-270 people 42.1 years
+-1.8% decline state: 38.6 years
+Number Percent
+Under 5 years 814 5.6%
+5-14 years 1,986 13.7%
+15-24 years 1,563 10.8%
+25-34 years 1,553 10.7%
+35-44 years 1,673 11.6%
+45-54 years 1,574 10.9%
+55-64 years 2,185 15.1%
+65-74 years 1,711 11.8%
+75-84 years 916 6.3%
+85 years & over 479 3.3%
+Total Population 14,453 100.0%
+Births Deaths Total
+Renville Co. -263 -67 710 777 -199
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 495 3.4% 87 21.3% 8.6% 24.7%
+Europe 56 11.3% 29 107.4% 8.8% -3.4%
+Asia 89 18.0% 32 56.1% 35.7% 18.1%
+Africa 6 1.2% -3 -33.3% 28.3% 78.8%
+Oceania 1 0.2% 1 #DIV/0! 0.4% 5.4%
+Americas: 343 69.3% 28 8.9% 26.7% 8.7%
+Latin America 340 68.7% 37 12.2% 24.2% 9.7%
+Northern America 3 0.6% -9 -75.0% 2.5% 0.4%Renville Co. suffered a negative natural increase - more deaths than births from 2020 to 2024, but also experienced net out-migration - 
+meaning more people moved out than moved in. Despite suffering domestic out-migration, Renville Co. welcomed net international in-
+migration - gaining new Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Renville Co. has a smaller percentage of foreign-born residents. From 2013 to 2023, Renville Co. saw an increase in 
+the number of foreign-born residents, though it was slower than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Renville Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Renville Co. is a part of Economic Development Region 6E, which is located in the 
+Central Planning Region.Renville Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+-253
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program54
+81,091Renville Co. is the 57th largest of the 87 counties in the state. Its population decreased so far this decade, ranking as the 69th fastest growing 
+in the state from 2020 to 2024. Renville Co.'s population has an older median age than the state and a larger percentage of people aged 65 
+years and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+1,029
+2,619
+2,043
+1,763
+2,571
+2,185
+1,543
+1,558
+1,285
+558814
+1,986
+1,563
+1,553
+1,673
+1,574
+2,185
+1,711
+916
+479Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+11%
+18%
+1%
+0%69%1%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+14,587 100.0% -5.9% 100.0% 6.8%
+12,767 87.5% -13.5% 78.4% -2.2%
+124 0.9% 27.8% 6.8% 38.9%
+131 0.9% 9.2% 0.9% -11.6%
+ 106 0.7% 58.2% 5.1% 29.6%
+626 4.3% 98.7% 2.7% 96.1%
+833 5.7% 531.1% 6.2% 168.3%
+1,414 9.7% 31.0% 6.2% 37.5%
+Renville Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change14,419      13,877            
+Under 5 years 842                 847                   5 0.6%
+5-14 years 1,877              1,719                -158 -8.4%
+15-24 years 1,637              1,583                -54 -3.3%
+25-34 years 1,595              1,565                -30 -1.9%
+35-44 years 1,680              1,794                114 6.8%
+45-54 years 1,617              1,740                123 7.6%
+55-64 years 1,866              1,500                -366 -19.6%
+65-74 years 1,868              1,492                -376 -20.1%
+75-84 years 975                 1,228                253 25.9%
+85 years & over 462                 409                   -53 -11.5%
+Total Population 14,419          13,877            -542 -3.8%
+55.3%
+68.8%
+14.3%
+14.0%
+3.4%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Renville Co. has a lower percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a lower 
+percentage of people with at least some college experience. Renville Co. also has a higher percentage of people with an Associate's degree 
+and a lower percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:90.6%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Renville Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Renville Co.'s population is expected to decline from 2025 to 2035, with a rate of 
+change that is slower than the projected statewide growth rate (3.7%). Despite the decline, the number of people aged 65 years and older is 
+expected to decrease over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSRenville Co.'s population was becoming more racially diverse over time. Since 2013, the white population declined, but the number of people 
+of other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Renville Co. Minnesota
+9%
+35%
+24%14%14%3%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree87.5%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 2,000 4,000 6,000 8,000 10,000 12,000 14,000 16,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+7,586 available workers
+-1,185 workers
+-13.5% decline
+4.0% unemployment rate
+2.8% state
+303 unemployed workers
+Renville Co.
+Average of 93 Average of -19 Average of -118
+new workers per year fewer workers per year fewer workers per year
+2025 2035
+16 to 24 years 1,025 1,001
+25 to 54 years 4,121 4,293
+55 to 64 years 1,343 1,079
+65 years & over 671 574
+Total Labor Force 7,159 6,947Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Renville Co. averaged 
+an annual loss of fewer workers from 2000 to 2010, and most recently a loss of fewer workers since 2010 (see Figure 7). Moving forward, 
+Renville Co. is expected to see a labor force decline from 2025 to 2035 (see Table 6).COUNTY PROFILE Renville Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 4%, Renville Co. had a higher unemployment rate than 
+the state in 2024. After the pandemic recession Renville 
+Co.'s unemployment rate declined compared to the 5% pre-
+pandemic rate posted in 2019. The number of unemployed 
+workers actively seeking work in Renville Co. increased 
+over the past year, and is down compared to 2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Central returned to pre-pandemic levels, but 
+employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-300-19646218
+-1,500-1,000-50005001,0001,5001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,8028,771
+7,8187,518 7,586
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+01,0002,0003,0004,0005,0006,0007,0008,0009,00010,0002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Renville Co.
+1.9
+1.31.4
+1.1
+0.81.02.2
+0.60.50.80.9
+0.00.51.01.52.02.5
+ - 5,000 10,000 15,000 20,000 25,000 30,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Central Minnesota Vacancies
+Central Minnesota Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+7,233 62.8% 2.5% 68.5% 3.9% 4,026 3,202
+393 59.3% 9.7% 52.7% 9.9% 220 173
+540 80.5% 9.1% 83.4% 6.5% 302 238
+2,796 85.9% 1.5% 88.7% 3.5% 1,527 1,270
+1,286 80.9% 1.8% 87.8% 2.9% 702 583
+1,587 72.0% 1.1% 72.8% 3.0% 874 712
+516 29.9% 1.5% 27.8% 3.4% 328 189
+110 7.8% 1.8% 6.6% 3.1% 73 37
+6,473 62.7% 2.2% 67.5% 3.4% White alone 89.5%
+6 15.0% 0.0% 71.0% 8.4% Black or African American 0.1%
+42 38.5% 0.0% 57.7% 11.4% American Indian & Alaska Native 0.6%
+53 63.1% 0.0% 74.6% 3.5% Asian or Other Pac. Islanders 0.7%
+279 67.9% 10.0% 75.9% 5.6% Some Other Race 3.9%
+377 68.5% 3.2% 74.2% 6.1% Two or More Races 5.2%
+575 65.1% 5.7% 77.1% 5.9%
+349 38.3% 4.6% 55.3% 9.5%
+5,668 80.4% 1.5% 84.4% 3.3%
+390 62.7% 1.9% 67.1% 4.7%
+1,608 76.3% 1.4% 76.5% 2.6%
+2,373 81.2% 1.4% 85.0% 3.6%
+1,296 92.7% 1.3% 90.5% 2.0%
+Number Percent Number Percent
+6,893 99.3% 2,870,678 97.8%
+4,575 65.9% 1,984,232 67.6%
+2,312 33.3% 886,447 30.2%
+49 0.7% 64,576 2.2%
+5,956 85.8% 2,286,563 77.9%
+35 0.5% 61,640 2.1%
+354 5.1% 120,345 4.1%
+590 8.5% 463,770 15.8%
+2,242 32.3% 478,446 16.3%
+1,847 26.6% 924,605 31.5%
+1,090 15.7% 651,626 22.2%
+1,090 15.7% 551,828 18.8%
+271 3.9% 176,115 6.0%
+403 5.8% 149,698 5.1%
+20.5 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanRenville Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKRenville Co. had a lower labor force participation rate than the state. The labor force in Renville Co. is less racially diverse than the state 
+(where 80.0% of workers are white alone), but is becoming more diverse over time.
+A smaller percentage of workers in Renville Co. worked in the same county in which they live compared to the state. Renville Co. also had a 
+shorter average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesRenville Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Renville Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+3.7%
+9.8%
+21.4%
+34.1%
+10.4%
+20.5%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Renville Co. Minnesota89.5%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$69,086
+state $87,556
+$88,220
+state $111,492
+$36,131
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Renville Co. $30,188 $14.51 $0 $425 $150 $762 $600 $275 $304
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Renville Co. $57,830 $18.54 $340 $966 $530 $931 $1,098 $439 $515
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+4,738 100.0% 100.0%
+440 9.3% 4.0%
+1,011 21.3% 4.0%
+891 18.8% 6.2%
+737 15.6% 8.9%
+908 19.2% 25.7%
+504 10.6% 33.6%
+247 5.2% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$151,900
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent21.6%
+47.2%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$1,399COUNTY PROFILE Renville Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Renville Co.Median Household Income
+Median Family Income
+$760The cost of living has increased over the past 2 years with costs up in many areas. Renville Co. had a lower cost of living than the state, with a 
+required hourly wage of $14.51 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of 
+$18.54 for a typical family with 2 adults and 1 child (see Table 9).
+Renville Co. had a lower median house value than the state, having the 72nd highest value of the 87 counties in 2022. Renville Co.'s housing 
+stock was older than the state's, with a lower percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeRenville Co. had a lower median household income than the state, and a higher percentage of households with incomes below $50,000. 
+Overall, Renville Co. had the 66th highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs15.3%
+11.7%19.3%
+15.4%19.8%
+15.7%13.7%
+13.5%19.0%
+19.7%13.0%
+24.0%Renville Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+1.9%
+6.3%
+14.4%
+25.1%
+19.8%
+32.5%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 10% 20% 30% 40%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Renville Co. Minnesota
+27.0%
+11.7%
+14.2%4.9%42.3%
+58.4%
+13.0%6.9%8.3%13.3%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$23.00       50,900 100.0% 1.0 $26.22      2,920,470 100.0%
+$48.33          2,620 5.1% 0.8 $59.38 200,060 6.9%
+$35.60          1,890 3.7% 0.5 $39.95 208,210 7.1%
+$37.07             500 1.0% 0.3 $50.02 97,460 3.3%
+$40.96             910 1.8% 0.9 $45.03 57,950 2.0%
+$33.73             330 0.6% 0.6 $38.33 32,150 1.1%
+$29.48          1,100 2.2% 1.1 $29.82 59,290 2.0%
+$39.15             130 0.3% 0.4 $49.52 20,750 0.7%
+$23.60          2,830 5.6% 1.0 $27.84 170,270 5.8%
+$22.14             330 0.6% 0.5 $28.84 36,030 1.2%
+$40.13          2,830 5.6% 0.9 $46.51 187,480 6.4%
+$18.05          4,400 8.6% 1.4 $18.67 176,750 6.1%
+$28.39             710 1.4% 0.9 $29.37 46,960 1.6%
+$14.68          4,240 8.3% 1.0 $16.05 240,830 8.2%
+$18.01          1,540 3.0% 1.1 $19.16 81,700 2.8%
+$16.93             850 1.7% 0.8 $17.54 63,300 2.2%
+$16.89          4,550 8.9% 1.1 $18.66 244,780 8.4%
+$22.54          5,360 10.5% 0.9 $24.07 340,040 11.6%
+$24.58             320 0.6% 5.6 $23.48 3,300 0.1%
+$29.26          2,140 4.2% 1.1 $34.20 114,050 3.9%
+$28.64          2,340 4.6% 1.3 $30.40 105,650 3.6%
+$23.86          5,980 11.7% 1.7 $23.56 205,220 7.0%
+$22.52          5,000 9.8% 1.3 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+13,827 $19.81
+319 $29.45
+394 $33.36
+40 $26.02
+197 $30.87
+122 $33.52
+283 $23.80
+735 $19.62
+1,450 $29.97
+1,363 $18.33
+189 $21.58
+1,814 $15.03
+260 $16.97
+417 $14.99
+1,861 $15.92
+911 $20.11
+693 $22.04
+695 $23.62
+598 $20.21
+1,128 $20.98 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $23 in 2024, wages were lower in Region 6E than the state. Overall, Region 6E had the 4th lowest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($48.33) and lowest for food preparation and 
+serving related jobs ($14.68) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Renville Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 6E State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Central Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairRenville Co. is a part of the Central planning region. There were 13827 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryAgriculture, 
+Forestry, Fishing 
+& Hunting 
+1%Mining 
+0% Construction 
+5%
+Manufacturing 
+9%
+Utilities 
+0%Wholesale Trade 
+2%
+Retail Trade 
+19%
+Transportation 
+and Warehousing 
+5%
+Information 
+0%Finance 
+and 
+Insurance 
+2%Real 
+Estate and 
+Rental 
+and 
+Leasing Professional and 
+Technical 
+Services 
+2%Management of 
+Companies and 
+Enterprises 
+0%Administrative 
+and Waste 
+Services 
+1%Educational 
+Services 
+7%Health Care 
+and Social 
+Assistance 
+28%Arts, 
+Entertainmen
+t, and 
+Recreation 
+1%Accommodatio
+n and Food 
+Services 
+10%Other 
+Services, 
+Ex. Public 
+Admin 
+4%Public 
+Administration 
+3%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Retail Salespersons
+$35,817/yr
+Home Health and Personal 
+Care Aides
+$35,952/yr
+Fast Food and Counter 
+Workers
+$30,548/yr
+Cashiers
+$31,985/yr
+Stockers and Order Fillers
+$38,723/yr
+Janitors and Cleaners, 
+Except Maids and 
+$37,511/yr
+Waiters and Waitresses
+$24,272/yr
+Childcare Workers
+$32,303/yr
+First-Line Supervisors of 
+Retail Sales Workers
+$47,389/yr
+Customer Service 
+Representatives
+$44,527/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+315,929           332,231      5.2% 16,302
+5,649                5,809         2.8% 160
+1,986                1,998         0.6% 12
+20,532              22,780      10.9% 2,248
+41,539              44,543      7.2% 3,004
+11,219              12,105      7.9% 886
+35,711              35,808      0.3% 97
+9,287                10,143      9.2% 856
+3,002                3,214         7.1% 212
+10,142              10,528      3.8% 386
+9,040                9,979         10.4% 939
+10,369              11,004      6.1% 635
+24,622              24,913      1.2% 291
+45,668              49,836      9.1% 4,168
+26,046              27,642      6.1% 1,596
+10,880              11,311      4.0% 431
+20,424              21,077      3.2% 653
+Source: DEED 2022-2032 Employment OutlookLicensed Practical and Licensed Vocational 
+Nurses
+Machinists
+Bookkeeping, Accounting, and Auditing 
+Clerks
+$48,462/yrHeavy and Tractor-Trailer Truck Drivers Registered Nurses General and Operations Managers
+$60,953/yr $97,279/yr $82,833/yrCOUNTY PROFILE Renville Co.
+OCCUPATIONS IN DEMAND
+Table 13. Central Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Nursing AssistantsRadiologic Technologists and 
+TechniciansElementary School Teachers, 
+Except Special Education
+$40,289/yr $79,926/yr $65,116/yr
+Police and Sheriff's Patrol 
+OfficersSecondary School Teachers, Except 
+Special and Career/Technical 
+$58,035/yr $78,056/yr $66,539/yr
+Child, Family, and School Social 
+Workers
+$49,071/yr $77,932/yr $65,914/yr
+$66,288/yr $97,918/yr
+Substance abuse, behavioral disorder, and 
+mental health counselorsHuman Resources Assistants, 
+Except Payroll and TimekeepingProject Management SpecialistsAutomotive Service Technicians and 
+MechanicsIndustrial Engineering 
+Technologists and TechniciansMedical and Health Services 
+Managers
+$49,872/yr $64,316/yr $108,690/yr
+Calibration Technologists and 
+TechniciansPreschool Teachers, Except Special 
+Education
+$61,397/yr $51,876/yr $38,309/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Central Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityRenville Co. is a part of the Central planning region, which is projected to see a 5.2% increase in employment levels over the next decade. In 
+addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$79,223/yr
+$85,453/yrElectricians Surgical Technologists Industrial Engineers
+Medical AssistantsVeterinary Technologists and 
+TechniciansSpecial Education Teachers, 
+Secondary School
+$46,438/yr $69,045/yr
+Source: DEED Occupations in DemandEmergency Medical Technicians Dental Hygienists Accountants and Auditors
+$43,830/yr $95,926/yr $73,436/yr
+Detectives and Criminal 
+Investigators
+$54,808/yr $49,531/yr
+1,450
+856
+413
+484
+157
+590
+63
+678
+168
+1,676
+1,880
+172
+1,029
+577
+651
+-12
+-1,105
+15
+1,780
+1,085
+1,384
+2,3117,406
+4,284
+822
+1,290
+461
+2,724
+374
+8,450
+2,404
+5,975
+13,047
+2,405
+20,705
+6,626
+6,031
+18,082
+17,777
+1,773
+6,964
+5,176
+12,840
+14,900-5,000 5,000 15,000 25,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction and…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and Extraction…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+593 business establishments annual average wage
+5,477 jobs total industry payroll
+131 jobs  
+2.5% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+5,477 100.0% $55,266 Total, All Industries 0.2%
+#N/A #N/A #N/A Agriculture, Forestry, Fish & Hunt #N/A
+#N/A #N/A #N/A Mining #N/A
+193 3.5% $58,425 Construction -5.9%
+1,019 18.6% $80,202 Manufacturing -1.7%
+#N/A #N/A #N/A Utilities #N/A
+#N/A #N/A #N/A Wholesale Trade #N/A
+349 6.4% $28,370 Retail Trade 1.7%
+473 8.6% $58,680 Transportation & Warehousing 2.6%
+20 0.4% $48,120 Information -16.7%
+144 2.6% $69,390 Finance & Insurance -10.6%
+#N/A #N/A #N/A Real Estate & Rental & Leasing #N/A
+131 2.4% $73,922 Professional & Technical Services -5.1%
+18 0.3% $103,002 Management of Companies -34.1%
+23 0.4% $25,970 Admin. Support & Waste Mgmt. Svcs. -20.7%
+387 7.1% $23,841 Educational Services 5.9%
+764 13.9% $22,984 Health Care & Social Assistance -3.0%
+31 0.6% $17,121 Arts, Entertainment, & Recreation -3.1%
+670 12.2% $33,837 Accommodation & Food Services 3.2%
+105 1.9% $37,968 Other Services 0.0%
+369 6.7% $54,151 Public Administration 7.0%
+For more information on Renville Co.'s population, labor force, and economic trends, contact:
+Luke Greiner Regional Analyst, Central & Southwest
+CareerForce St. Cloud  |  1542 Northway Dr. Door 2  |  St. Cloud MN 56303
+Office: 320-223-6992 E-mail: luke.greiner@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Renville Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Renville Co. had the 56th largest economy of the 87 counties in 
+the state. Renville Co. was the 51st fastest growing in the past year and the 66th fastest growing since 2019. From 2019 to 2024, employment 
+in Renville Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Renville Co. Industry 
+Employment Statistics, 2024Job change,                    
+2019-2024$55,266
+$302,689,882
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration0.2%
+#N/A
+#N/A
+-5.9%
+-1.7%
+#N/A
+#N/A
+1.7%
+2.6%
+-16.7%
+-10.6%
+#N/A
+-5.1%
+-34.1%
+-20.7%
+5.9%
+-3.0%
+-3.1%
+3.2%
+0.0%
+7.0%-40.0% -30.0% -20.0% -10.0% 0.0% 10.0%Figure 17. Change in Jobs, 2023 -20245,7666,102
+5,7195,792
+5,3465,4785,467
+5,477 2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+4,8005,0005,2005,4005,6005,8006,0006,200
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Renville Co. Minnesota
+
+Provide your analysis as JSON following the required schema. Use ONLY the allowed fields from the fact sheet (economy, market, insurance, weather flags, NASS progress). Ignore any agronomic variables already modeled by ML.
+
+Return ONLY the JSON object, no other text.
+
+================================================================================
+FACT SHEET CONTENT (from PDF)
+================================================================================
+
+2024 population: 14,453 people
+-270 people 42.1 years
+-1.8% decline state: 38.6 years
+Number Percent
+Under 5 years 814 5.6%
+5-14 years 1,986 13.7%
+15-24 years 1,563 10.8%
+25-34 years 1,553 10.7%
+35-44 years 1,673 11.6%
+45-54 years 1,574 10.9%
+55-64 years 2,185 15.1%
+65-74 years 1,711 11.8%
+75-84 years 916 6.3%
+85 years & over 479 3.3%
+Total Population 14,453 100.0%
+Births Deaths Total
+Renville Co. -263 -67 710 777 -199
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 495 3.4% 87 21.3% 8.6% 24.7%
+Europe 56 11.3% 29 107.4% 8.8% -3.4%
+Asia 89 18.0% 32 56.1% 35.7% 18.1%
+Africa 6 1.2% -3 -33.3% 28.3% 78.8%
+Oceania 1 0.2% 1 #DIV/0! 0.4% 5.4%
+Americas: 343 69.3% 28 8.9% 26.7% 8.7%
+Latin America 340 68.7% 37 12.2% 24.2% 9.7%
+Northern America 3 0.6% -9 -75.0% 2.5% 0.4%Renville Co. suffered a negative natural increase - more deaths than births from 2020 to 2024, but also experienced net out-migration - 
+meaning more people moved out than moved in. Despite suffering domestic out-migration, Renville Co. welcomed net international in-
+migration - gaining new Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Renville Co. has a smaller percentage of foreign-born residents. From 2013 to 2023, Renville Co. saw an increase in 
+the number of foreign-born residents, though it was slower than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Renville Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Renville Co. is a part of Economic Development Region 6E, which is located in the 
+Central Planning Region.Renville Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+-253
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program54
+81,091Renville Co. is the 57th largest of the 87 counties in the state. Its population decreased so far this decade, ranking as the 69th fastest growing 
+in the state from 2020 to 2024. Renville Co.'s population has an older median age than the state and a larger percentage of people aged 65 
+years and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+1,029
+2,619
+2,043
+1,763
+2,571
+2,185
+1,543
+1,558
+1,285
+558814
+1,986
+1,563
+1,553
+1,673
+1,574
+2,185
+1,711
+916
+479Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+11%
+18%
+1%
+0%69%1%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+14,587 100.0% -5.9% 100.0% 6.8%
+12,767 87.5% -13.5% 78.4% -2.2%
+124 0.9% 27.8% 6.8% 38.9%
+131 0.9% 9.2% 0.9% -11.6%
+ 106 0.7% 58.2% 5.1% 29.6%
+626 4.3% 98.7% 2.7% 96.1%
+833 5.7% 531.1% 6.2% 168.3%
+1,414 9.7% 31.0% 6.2% 37.5%
+Renville Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change14,419      13,877            
+Under 5 years 842                 847                   5 0.6%
+5-14 years 1,877              1,719                -158 -8.4%
+15-24 years 1,637              1,583                -54 -3.3%
+25-34 years 1,595              1,565                -30 -1.9%
+35-44 years 1,680              1,794                114 6.8%
+45-54 years 1,617              1,740                123 7.6%
+55-64 years 1,866              1,500                -366 -19.6%
+65-74 years 1,868              1,492                -376 -20.1%
+75-84 years 975                 1,228                253 25.9%
+85 years & over 462                 409                   -53 -11.5%
+Total Population 14,419          13,877            -542 -3.8%
+55.3%
+68.8%
+14.3%
+14.0%
+3.4%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Renville Co. has a lower percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a lower 
+percentage of people with at least some college experience. Renville Co. also has a higher percentage of people with an Associate's degree 
+and a lower percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:90.6%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Renville Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Renville Co.'s population is expected to decline from 2025 to 2035, with a rate of 
+change that is slower than the projected statewide growth rate (3.7%). Despite the decline, the number of people aged 65 years and older is 
+expected to decrease over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSRenville Co.'s population was becoming more racially diverse over time. Since 2013, the white population declined, but the number of people 
+of other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Renville Co. Minnesota
+9%
+35%
+24%14%14%3%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree87.5%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 2,000 4,000 6,000 8,000 10,000 12,000 14,000 16,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+7,586 available workers
+-1,185 workers
+-13.5% decline
+4.0% unemployment rate
+2.8% state
+303 unemployed workers
+Renville Co.
+Average of 93 Average of -19 Average of -118
+new workers per year fewer workers per year fewer workers per year
+2025 2035
+16 to 24 years 1,025 1,001
+25 to 54 years 4,121 4,293
+55 to 64 years 1,343 1,079
+65 years & over 671 574
+Total Labor Force 7,159 6,947Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Renville Co. averaged 
+an annual loss of fewer workers from 2000 to 2010, and most recently a loss of fewer workers since 2010 (see Figure 7). Moving forward, 
+Renville Co. is expected to see a labor force decline from 2025 to 2035 (see Table 6).COUNTY PROFILE Renville Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 4%, Renville Co. had a higher unemployment rate than 
+the state in 2024. After the pandemic recession Renville 
+Co.'s unemployment rate declined compared to the 5% pre-
+pandemic rate posted in 2019. The number of unemployed 
+workers actively seeking work in Renville Co. increased 
+over the past year, and is down compared to 2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Central returned to pre-pandemic levels, but 
+employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-300-19646218
+-1,500-1,000-50005001,0001,5001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,8028,771
+7,8187,518 7,586
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+01,0002,0003,0004,0005,0006,0007,0008,0009,00010,0002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Renville Co.
+1.9
+1.31.4
+1.1
+0.81.02.2
+0.60.50.80.9
+0.00.51.01.52.02.5
+ - 5,000 10,000 15,000 20,000 25,000 30,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Central Minnesota Vacancies
+Central Minnesota Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+7,233 62.8% 2.5% 68.5% 3.9% 4,026 3,202
+393 59.3% 9.7% 52.7% 9.9% 220 173
+540 80.5% 9.1% 83.4% 6.5% 302 238
+2,796 85.9% 1.5% 88.7% 3.5% 1,527 1,270
+1,286 80.9% 1.8% 87.8% 2.9% 702 583
+1,587 72.0% 1.1% 72.8% 3.0% 874 712
+516 29.9% 1.5% 27.8% 3.4% 328 189
+110 7.8% 1.8% 6.6% 3.1% 73 37
+6,473 62.7% 2.2% 67.5% 3.4% White alone 89.5%
+6 15.0% 0.0% 71.0% 8.4% Black or African American 0.1%
+42 38.5% 0.0% 57.7% 11.4% American Indian & Alaska Native 0.6%
+53 63.1% 0.0% 74.6% 3.5% Asian or Other Pac. Islanders 0.7%
+279 67.9% 10.0% 75.9% 5.6% Some Other Race 3.9%
+377 68.5% 3.2% 74.2% 6.1% Two or More Races 5.2%
+575 65.1% 5.7% 77.1% 5.9%
+349 38.3% 4.6% 55.3% 9.5%
+5,668 80.4% 1.5% 84.4% 3.3%
+390 62.7% 1.9% 67.1% 4.7%
+1,608 76.3% 1.4% 76.5% 2.6%
+2,373 81.2% 1.4% 85.0% 3.6%
+1,296 92.7% 1.3% 90.5% 2.0%
+Number Percent Number Percent
+6,893 99.3% 2,870,678 97.8%
+4,575 65.9% 1,984,232 67.6%
+2,312 33.3% 886,447 30.2%
+49 0.7% 64,576 2.2%
+5,956 85.8% 2,286,563 77.9%
+35 0.5% 61,640 2.1%
+354 5.1% 120,345 4.1%
+590 8.5% 463,770 15.8%
+2,242 32.3% 478,446 16.3%
+1,847 26.6% 924,605 31.5%
+1,090 15.7% 651,626 22.2%
+1,090 15.7% 551,828 18.8%
+271 3.9% 176,115 6.0%
+403 5.8% 149,698 5.1%
+20.5 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanRenville Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKRenville Co. had a lower labor force participation rate than the state. The labor force in Renville Co. is less racially diverse than the state 
+(where 80.0% of workers are white alone), but is becoming more diverse over time.
+A smaller percentage of workers in Renville Co. worked in the same county in which they live compared to the state. Renville Co. also had a 
+shorter average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesRenville Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Renville Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+3.7%
+9.8%
+21.4%
+34.1%
+10.4%
+20.5%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Renville Co. Minnesota89.5%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$69,086
+state $87,556
+$88,220
+state $111,492
+$36,131
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Renville Co. $30,188 $14.51 $0 $425 $150 $762 $600 $275 $304
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Renville Co. $57,830 $18.54 $340 $966 $530 $931 $1,098 $439 $515
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+4,738 100.0% 100.0%
+440 9.3% 4.0%
+1,011 21.3% 4.0%
+891 18.8% 6.2%
+737 15.6% 8.9%
+908 19.2% 25.7%
+504 10.6% 33.6%
+247 5.2% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$151,900
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent21.6%
+47.2%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$1,399COUNTY PROFILE Renville Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Renville Co.Median Household Income
+Median Family Income
+$760The cost of living has increased over the past 2 years with costs up in many areas. Renville Co. had a lower cost of living than the state, with a 
+required hourly wage of $14.51 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of 
+$18.54 for a typical family with 2 adults and 1 child (see Table 9).
+Renville Co. had a lower median house value than the state, having the 72nd highest value of the 87 counties in 2022. Renville Co.'s housing 
+stock was older than the state's, with a lower percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeRenville Co. had a lower median household income than the state, and a higher percentage of households with incomes below $50,000. 
+Overall, Renville Co. had the 66th highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs15.3%
+11.7%19.3%
+15.4%19.8%
+15.7%13.7%
+13.5%19.0%
+19.7%13.0%
+24.0%Renville Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+1.9%
+6.3%
+14.4%
+25.1%
+19.8%
+32.5%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 10% 20% 30% 40%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Renville Co. Minnesota
+27.0%
+11.7%
+14.2%4.9%42.3%
+58.4%
+13.0%6.9%8.3%13.3%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$23.00       50,900 100.0% 1.0 $26.22      2,920,470 100.0%
+$48.33          2,620 5.1% 0.8 $59.38 200,060 6.9%
+$35.60          1,890 3.7% 0.5 $39.95 208,210 7.1%
+$37.07             500 1.0% 0.3 $50.02 97,460 3.3%
+$40.96             910 1.8% 0.9 $45.03 57,950 2.0%
+$33.73             330 0.6% 0.6 $38.33 32,150 1.1%
+$29.48          1,100 2.2% 1.1 $29.82 59,290 2.0%
+$39.15             130 0.3% 0.4 $49.52 20,750 0.7%
+$23.60          2,830 5.6% 1.0 $27.84 170,270 5.8%
+$22.14             330 0.6% 0.5 $28.84 36,030 1.2%
+$40.13          2,830 5.6% 0.9 $46.51 187,480 6.4%
+$18.05          4,400 8.6% 1.4 $18.67 176,750 6.1%
+$28.39             710 1.4% 0.9 $29.37 46,960 1.6%
+$14.68          4,240 8.3% 1.0 $16.05 240,830 8.2%
+$18.01          1,540 3.0% 1.1 $19.16 81,700 2.8%
+$16.93             850 1.7% 0.8 $17.54 63,300 2.2%
+$16.89          4,550 8.9% 1.1 $18.66 244,780 8.4%
+$22.54          5,360 10.5% 0.9 $24.07 340,040 11.6%
+$24.58             320 0.6% 5.6 $23.48 3,300 0.1%
+$29.26          2,140 4.2% 1.1 $34.20 114,050 3.9%
+$28.64          2,340 4.6% 1.3 $30.40 105,650 3.6%
+$23.86          5,980 11.7% 1.7 $23.56 205,220 7.0%
+$22.52          5,000 9.8% 1.3 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+13,827 $19.81
+319 $29.45
+394 $33.36
+40 $26.02
+197 $30.87
+122 $33.52
+283 $23.80
+735 $19.62
+1,450 $29.97
+1,363 $18.33
+189 $21.58
+1,814 $15.03
+260 $16.97
+417 $14.99
+1,861 $15.92
+911 $20.11
+693 $22.04
+695 $23.62
+598 $20.21
+1,128 $20.98 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $23 in 2024, wages were lower in Region 6E than the state. Overall, Region 6E had the 4th lowest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($48.33) and lowest for food preparation and 
+serving related jobs ($14.68) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Renville Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 6E State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Central Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairRenville Co. is a part of the Central planning region. There were 13827 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryAgriculture, 
+Forestry, Fishing 
+& Hunting 
+1%Mining 
+0% Construction 
+5%
+Manufacturing 
+9%
+Utilities 
+0%Wholesale Trade 
+2%
+Retail Trade 
+19%
+Transportation 
+and Warehousing 
+5%
+Information 
+0%Finance 
+and 
+Insurance 
+2%Real 
+Estate and 
+Rental 
+and 
+Leasing Professional and 
+Technical 
+Services 
+2%Management of 
+Companies and 
+Enterprises 
+0%Administrative 
+and Waste 
+Services 
+1%Educational 
+Services 
+7%Health Care 
+and Social 
+Assistance 
+28%Arts, 
+Entertainmen
+t, and 
+Recreation 
+1%Accommodatio
+n and Food 
+Services 
+10%Other 
+Services, 
+Ex. Public 
+Admin 
+4%Public 
+Administration 
+3%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Retail Salespersons
+$35,817/yr
+Home Health and Personal 
+Care Aides
+$35,952/yr
+Fast Food and Counter 
+Workers
+$30,548/yr
+Cashiers
+$31,985/yr
+Stockers and Order Fillers
+$38,723/yr
+Janitors and Cleaners, 
+Except Maids and 
+$37,511/yr
+Waiters and Waitresses
+$24,272/yr
+Childcare Workers
+$32,303/yr
+First-Line Supervisors of 
+Retail Sales Workers
+$47,389/yr
+Customer Service 
+Representatives
+$44,527/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+315,929           332,231      5.2% 16,302
+5,649                5,809         2.8% 160
+1,986                1,998         0.6% 12
+20,532              22,780      10.9% 2,248
+41,539              44,543      7.2% 3,004
+11,219              12,105      7.9% 886
+35,711              35,808      0.3% 97
+9,287                10,143      9.2% 856
+3,002                3,214         7.1% 212
+10,142              10,528      3.8% 386
+9,040                9,979         10.4% 939
+10,369              11,004      6.1% 635
+24,622              24,913      1.2% 291
+45,668              49,836      9.1% 4,168
+26,046              27,642      6.1% 1,596
+10,880              11,311      4.0% 431
+20,424              21,077      3.2% 653
+Source: DEED 2022-2032 Employment OutlookLicensed Practical and Licensed Vocational 
+Nurses
+Machinists
+Bookkeeping, Accounting, and Auditing 
+Clerks
+$48,462/yrHeavy and Tractor-Trailer Truck Drivers Registered Nurses General and Operations Managers
+$60,953/yr $97,279/yr $82,833/yrCOUNTY PROFILE Renville Co.
+OCCUPATIONS IN DEMAND
+Table 13. Central Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Nursing AssistantsRadiologic Technologists and 
+TechniciansElementary School Teachers, 
+Except Special Education
+$40,289/yr $79,926/yr $65,116/yr
+Police and Sheriff's Patrol 
+OfficersSecondary School Teachers, Except 
+Special and Career/Technical 
+$58,035/yr $78,056/yr $66,539/yr
+Child, Family, and School Social 
+Workers
+$49,071/yr $77,932/yr $65,914/yr
+$66,288/yr $97,918/yr
+Substance abuse, behavioral disorder, and 
+mental health counselorsHuman Resources Assistants, 
+Except Payroll and TimekeepingProject Management SpecialistsAutomotive Service Technicians and 
+MechanicsIndustrial Engineering 
+Technologists and TechniciansMedical and Health Services 
+Managers
+$49,872/yr $64,316/yr $108,690/yr
+Calibration Technologists and 
+TechniciansPreschool Teachers, Except Special 
+Education
+$61,397/yr $51,876/yr $38,309/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Central Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityRenville Co. is a part of the Central planning region, which is projected to see a 5.2% increase in employment levels over the next decade. In 
+addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$79,223/yr
+$85,453/yrElectricians Surgical Technologists Industrial Engineers
+Medical AssistantsVeterinary Technologists and 
+TechniciansSpecial Education Teachers, 
+Secondary School
+$46,438/yr $69,045/yr
+Source: DEED Occupations in DemandEmergency Medical Technicians Dental Hygienists Accountants and Auditors
+$43,830/yr $95,926/yr $73,436/yr
+Detectives and Criminal 
+Investigators
+$54,808/yr $49,531/yr
+1,450
+856
+413
+484
+157
+590
+63
+678
+168
+1,676
+1,880
+172
+1,029
+577
+651
+-12
+-1,105
+15
+1,780
+1,085
+1,384
+2,3117,406
+4,284
+822
+1,290
+461
+2,724
+374
+8,450
+2,404
+5,975
+13,047
+2,405
+20,705
+6,626
+6,031
+18,082
+17,777
+1,773
+6,964
+5,176
+12,840
+14,900-5,000 5,000 15,000 25,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction and…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and Extraction…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+593 business establishments annual average wage
+5,477 jobs total industry payroll
+131 jobs  
+2.5% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+5,477 100.0% $55,266 Total, All Industries 0.2%
+#N/A #N/A #N/A Agriculture, Forestry, Fish & Hunt #N/A
+#N/A #N/A #N/A Mining #N/A
+193 3.5% $58,425 Construction -5.9%
+1,019 18.6% $80,202 Manufacturing -1.7%
+#N/A #N/A #N/A Utilities #N/A
+#N/A #N/A #N/A Wholesale Trade #N/A
+349 6.4% $28,370 Retail Trade 1.7%
+473 8.6% $58,680 Transportation & Warehousing 2.6%
+20 0.4% $48,120 Information -16.7%
+144 2.6% $69,390 Finance & Insurance -10.6%
+#N/A #N/A #N/A Real Estate & Rental & Leasing #N/A
+131 2.4% $73,922 Professional & Technical Services -5.1%
+18 0.3% $103,002 Management of Companies -34.1%
+23 0.4% $25,970 Admin. Support & Waste Mgmt. Svcs. -20.7%
+387 7.1% $23,841 Educational Services 5.9%
+764 13.9% $22,984 Health Care & Social Assistance -3.0%
+31 0.6% $17,121 Arts, Entertainment, & Recreation -3.1%
+670 12.2% $33,837 Accommodation & Food Services 3.2%
+105 1.9% $37,968 Other Services 0.0%
+369 6.7% $54,151 Public Administration 7.0%
+For more information on Renville Co.'s population, labor force, and economic trends, contact:
+Luke Greiner Regional Analyst, Central & Southwest
+CareerForce St. Cloud  |  1542 Northway Dr. Door 2  |  St. Cloud MN 56303
+Office: 320-223-6992 E-mail: luke.greiner@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Renville Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Renville Co. had the 56th largest economy of the 87 counties in 
+the state. Renville Co. was the 51st fastest growing in the past year and the 66th fastest growing since 2019. From 2019 to 2024, employment 
+in Renville Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Renville Co. Industry 
+Employment Statistics, 2024Job change,                    
+2019-2024$55,266
+$302,689,882
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration0.2%
+#N/A
+#N/A
+-5.9%
+-1.7%
+#N/A
+#N/A
+1.7%
+2.6%
+-16.7%
+-10.6%
+#N/A
+-5.1%
+-34.1%
+-20.7%
+5.9%
+-3.0%
+-3.1%
+3.2%
+0.0%
+7.0%-40.0% -30.0% -20.0% -10.0% 0.0% 10.0%Figure 17. Change in Jobs, 2023 -20245,7666,102
+5,7195,792
+5,3465,4785,467
+5,477 2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+4,8005,0005,2005,4005,6005,8006,0006,200
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Renville Co. Minnesota
+
+================================================================================
+INSTRUCTIONS
+================================================================================
+
+1. Copy the SYSTEM PROMPT above and paste it as the system message in Grok
+2. Copy the USER PROMPT above and paste it as the user message in Grok
+3. Grok should return a JSON response with the required schema:
+   - adj_raw: float in [-1, 1]
+   - adj: float (after bounds & damping)
+   - pred_yield_bu_ac: float (= ml_pred * (1 + adj))
+   - low_80: float
+   - high_80: float
+   - drivers: array of 3-5 short phrases
+4. The adjustment uses alpha=0.15 and damping based on ML confidence
+5. Only use allowed fields from fact sheet (economy, market, insurance, weather flags, NASS progress)

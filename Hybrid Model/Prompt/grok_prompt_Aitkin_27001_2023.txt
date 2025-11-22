@@ -1,0 +1,1928 @@
+================================================================================
+GROK PROMPT FOR MANUAL UPLOAD
+================================================================================
+
+COUNTY INFORMATION
+--------------------------------------------------------------------------------
+Rank: 79 (of 83 Counties, >= 1,000,000 bushels)
+County: Aitkin
+FIPS Code: 27001
+Year: 2023
+Total Production (all years): 10,164,189 bushels
+
+ML BASELINE PREDICTION
+--------------------------------------------------------------------------------
+ML Baseline (total): 700,793 bushels
+ML Pred (bu/ac): 180.00
+ML Band Width: 36.00
+Train RMSE: 18.00
+P10 (10th percentile): 560,635 bushels
+P90 (90th percentile): 840,952 bushels
+Uncertainty Interval: [560,635, 840,952] bushels
+
+RECENT PRODUCTION HISTORY
+--------------------------------------------------------------------------------
+  2022: 922,880 bushels
+  2021: 529,200 bushels
+  2020: 650,300 bushels
+  2019: 0 bushels
+  2018: 316,400 bushels
+
+================================================================================
+SYSTEM PROMPT (for Grok)
+================================================================================
+
+You are a conservative adjustment module for county-level corn yield.
+
+Your ONLY inputs are a structured "factsheet" with exogenous signals that the ML model does not capture well.
+
+You must ignore agronomic variables already modeled by ML (soils, ethanol distance, historical yields, GLDAS/PRISM windowed indices, USDM, NDVI, etc.).
+
+Goal: Propose a small, bounded multiplicative adjustment to the provided ML baseline prediction based solely on the allowed facts.
+
+Hard constraints
+
+Use only these fields if present:
+
+economy_population, economy_unemployment_rate_pct, economy_available_workers,
+
+economy_required_hourly_wage_single_usd, economy_median_hourly_wage_region_usd,
+
+economy_median_household_income_usd, selected industry wage/size metrics.
+
+market_basis_anomaly_usd, elevator_outage_flag, rail_disruption_flag.
+
+prevented_planting_flag, pp_share_pct, insurance_disaster_flag.
+
+hail_event_flag, derecho_event_flag, localized_flood_flag.
+
+nass_planting_progress_pct, nass_harvest_progress_pct (weekly progress summaries).
+
+ML meta: ml_pred (bu/ac), ml_band_width (U−L), train_rmse.
+
+Forbidden: any soils, ethanol distance, recent yields, or windowed agronomic/drought/canopy variables. If such fields appear, ignore them.
+
+Compute a raw signed adjustment adj_raw in [-1, +1] reflecting only exogenous stress/support.
+
+Negative signals (examples): very high unemployment, severe labor shortages, high required_hourly_wage vs regional median, active logistics disruptions, hail/derecho flags, widespread prevented planting.
+
+Positive signals (examples): strong labor availability with low wage pressure and no disruptions.
+
+The final applied adjustment is bounded and damped by ML confidence:
+
+alpha = 0.15 (max magnitude).
+
+kappa = exp( - ml_band_width / train_rmse ).
+
+adj = clip(adj_raw, -alpha, +alpha) * (1 - kappa).
+
+Calibrated caution: If evidence is mixed or weak, set adj_raw = 0.0. Never exceed the bounds.
+
+Output JSON only with this schema (numbers only, no explanations in prose):
+
+For a SINGLE county:
+{
+  "adj_raw": float,                  // in [-1, 1], before damping
+  "adj": float,                      // after bounds & damping rule above
+  "pred_yield_bu_ac": float,         // = ml_pred * (1 + adj)
+  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj)
+  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj)
+  "drivers": [ "short phrase", ... ] // 3–5 concise drivers referencing ONLY allowed fields
+}
+
+For MULTIPLE counties (differentiated by FIPS):
+{
+  "<fips_code>": {
+    "adj_raw": float,
+    "adj": float,
+    "pred_yield_bu_ac": float,
+    "low_80": float,
+    "high_80": float,
+    "drivers": [ "short phrase", ... ]
+  },
+  "<fips_code>": { ... },
+  ...
+}
+
+No chain-of-thought. Do not explain your reasoning; just fill the JSON.
+
+If required fields are missing (e.g., ml_pred, ml_band_width, train_rmse), return:
+{"adj_raw": 0.0, "adj": 0.0, "pred_yield_bu_ac": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
+
+FIPS codes should be strings (e.g., "27129" not 27129).
+
+================================================================================
+USER PROMPT (for Grok)
+================================================================================
+
+Analyze this corn production factsheet and provide a bounded adjustment to the ML baseline prediction.
+
+County FIPS: 27001
+
+ML Meta:
+- ml_pred (bu/ac): 180.00
+- ml_band_width (U−L): 36.00
+- train_rmse: 18.00
+
+Fact Sheet Information:
+2024 population: 16,335 people
+638 people 56.5 years
+4.1% increase state: 38.6 years
+Number Percent
+Under 5 years 600 3.7%
+5-14 years 1,464 9.0%
+15-24 years 1,433 8.8%
+25-34 years 1,185 7.3%
+35-44 years 1,440 8.8%
+45-54 years 1,632 10.0%
+55-64 years 3,039 18.6%
+65-74 years 3,171 19.4%
+75-84 years 1,715 10.5%
+85 years & over 656 4.0%
+Total Population 16,335 100.0%
+Births Deaths Total
+Aitkin Co. 639 -524 490 1,014 1,156
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 113 0.7% -33 -22.6% 8.6% 24.7%
+Europe 34 30.1% -30 -46.9% 8.8% -3.4%
+Asia 14 12.4% -19 -57.6% 35.7% 18.1%
+Africa 6 5.3% -2 -25.0% 28.3% 78.8%
+Oceania 0 0.0% -3 -100.0% 0.4% 5.4%
+Americas: 59 52.2% 21 55.3% 26.7% 8.7%
+Latin America 35 31.0% 12 52.2% 24.2% 9.7%
+Northern America 24 21.2% 9 60.0% 2.5% 0.4%Aitkin Co. suffered a negative natural increase - more deaths than births from 2020 to 2024, but also experienced net in-migration - meaning 
+more people moved in than moved out. In addition to domestic in-migration, Aitkin Co. welcomed net international in-migration - gaining 
+new Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Aitkin Co. has a smaller percentage of foreign-born residents. From 2013 to 2023, Aitkin Co. saw a decrease in the 
+number of foreign-born residents, though it was slower than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Aitkin Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Aitkin Co. is a part of Economic Development Region 3, which is located in the 
+Northeast Planning Region.Aitkin Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+1,131
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program25
+81,091Aitkin Co. is the 53rd largest of the 87 counties in the state. Its population increased so far this decade, ranking as the 11th fastest growing in 
+the state from 2020 to 2024. Aitkin Co.'s population has an older median age than the state and a larger percentage of people aged 65 years 
+and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+688
+1,841
+1,501
+1,210
+2,092
+2,137
+2,315
+1,993
+1,130
+394600
+1,464
+1,433
+1,185
+1,440
+1,632
+3,039
+3,171
+1,715
+656Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+30%
+13%
+5% 0%31%21%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+15,930 100.0% -0.6% 100.0% 6.8%
+14,887 93.5% -2.7% 78.4% -2.2%
+113 0.7% 79.4% 6.8% 38.9%
+251 1.6% -15.2% 0.9% -11.6%
+ 26 0.2% -38.1% 5.1% 29.6%
+100 0.6% 316.7% 2.7% 96.1%
+553 3.5% 83.7% 6.2% 168.3%
+233 1.5% 41.2% 6.2% 37.5%
+Aitkin Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change16,050      16,132            
+Under 5 years 534                 497                   -37 -6.9%
+5-14 years 1,236              1,110                -126 -10.2%
+15-24 years 1,406              1,082                -324 -23.0%
+25-34 years 1,144              1,259                115 10.1%
+35-44 years 1,435              1,363                -72 -5.0%
+45-54 years 1,661              1,907                246 14.8%
+55-64 years 2,882              2,620                -262 -9.1%
+65-74 years 3,320              3,475                155 4.7%
+75-84 years 1,813              2,097                284 15.7%
+85 years & over 619                 722                   103 16.6%
+Total Population 16,050          16,132            82 0.5%
+54.6%
+68.8%
+12.4%
+12.2%
+5.7%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Aitkin Co. has a lower percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a lower 
+percentage of people with at least some college experience. Aitkin Co. also has a higher percentage of people with an Associate's degree and 
+a lower percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:92.8%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Aitkin Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Aitkin Co.'s population is expected to grow from 2025 to 2035, with a rate of change 
+that is slower than the projected statewide growth rate (3.7%). In addition to the overall growth, the number of people aged 65 years and 
+older is expected to increase over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSAitkin Co.'s population was becoming more racially diverse over time. Since 2013, the white population declined, but the number of people of 
+other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Aitkin Co. Minnesota
+7%
+38%
+24%12%12%6%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree93.5%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 2,000 4,000 6,000 8,000 10,000 12,000 14,000 16,000 18,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+7,091 available workers
+-627 workers
+-8.1% decline
+5.1% unemployment rate
+2.8% state
+362 unemployed workers
+Aitkin Co.
+Average of 199 Average of 11 Average of -26
+new workers per year new workers per year fewer workers per year
+2025 2035
+16 to 24 years 817 641
+25 to 54 years 3,615 3,855
+55 to 64 years 1,565 1,423
+65 years & over 728 776
+Total Labor Force 6,725 6,696Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Aitkin Co. averaged an 
+annual gain of new workers from 2000 to 2010, and most recently a loss of fewer workers since 2010 (see Figure 7). Moving forward, Aitkin 
+Co. is expected to see a labor force decline from 2025 to 2035 (see Table 6).COUNTY PROFILE Aitkin Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 5.1%, Aitkin Co. had a higher unemployment rate than 
+the state in 2024. After the pandemic recession Aitkin Co.'s 
+unemployment rate declined compared to the 6.6% pre-
+pandemic rate posted in 2019. The number of unemployed 
+workers actively seeking work in Aitkin Co. increased over 
+the past year, and is down compared to 2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Northeast returned to pre-pandemic levels, 
+but employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-17818141
+58
+-600-400-20002004006008001,0001,2001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,8027,718
+7,052
+6,8747,091
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+6,0006,2006,4006,6006,8007,0007,2007,4007,6007,8002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Aitkin Co.
+1.21.6
+1.4
+1.0
+0.80.92.0
+0.50.40.6 0.6
+0.00.51.01.52.02.5
+ - 5,000 10,000 15,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Northeast Minnesota Vacancies
+Northeast Minnesota Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+6,608 48.2% 5.8% 68.5% 3.9% 3,428 3,179
+308 54.3% 6.5% 52.7% 9.9% 142 166
+466 74.9% 9.7% 83.4% 6.5% 258 208
+2,228 87.0% 4.9% 88.7% 3.5% 1,138 1,090
+1,313 82.5% 6.7% 87.8% 2.9% 710 603
+1,610 54.3% 5.4% 72.8% 3.0% 802 808
+563 18.2% 6.0% 27.8% 3.4% 302 262
+118 5.1% 0.8% 6.6% 3.1% 76 42
+6,238 48.2% 5.4% 67.5% 3.4% White alone 94.4%
+21 29.2% 33.3% 71.0% 8.4% Black or African American 0.3%
+70 40.2% 22.9% 57.7% 11.4% American Indian & Alaska Native 1.1%
+13 76.4% 0.0% 74.6% 3.5% Asian or Other Pac. Islanders 0.2%
+20 20.8% 0.0% 75.9% 5.6% Some Other Race 0.3%
+244 59.7% 9.0% 74.2% 6.1% Two or More Races 3.7%
+130 73.9% 7.7% 77.1% 5.9%
+572 49.6% 7.5% 55.3% 9.5%
+5,152 72.4% 5.5% 84.4% 3.3%
+261 66.2% 7.5% 67.1% 4.7%
+1,553 64.7% 3.6% 76.5% 2.6%
+2,290 77.3% 4.0% 85.0% 3.6%
+1,046 77.0% 3.5% 90.5% 2.0%
+Number Percent Number Percent
+5,993 99.1% 2,870,678 97.8%
+4,064 67.2% 1,984,232 67.6%
+1,929 31.9% 886,447 30.2%
+54 0.9% 64,576 2.2%
+5,079 84.0% 2,286,563 77.9%
+0 0.0% 61,640 2.1%
+236 3.9% 120,345 4.1%
+726 12.0% 463,770 15.8%
+1,101 18.2% 478,446 16.3%
+1,820 30.1% 924,605 31.5%
+1,070 17.7% 651,626 22.2%
+949 15.7% 551,828 18.8%
+296 4.9% 176,115 6.0%
+810 13.4% 149,698 5.1%
+28.9 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanAitkin Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKAitkin Co. had a lower labor force participation rate than the state. The labor force in Aitkin Co. is less racially diverse than the state (where 
+80.0% of workers are white alone), but is becoming more diverse over time.
+A smaller percentage of workers in Aitkin Co. worked in the same county in which they live compared to the state. Aitkin Co. also had a longer 
+average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesAitkin Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Aitkin Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+4.7%
+10.7%
+17.6%
+33.6%
+15.0%
+18.4%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Aitkin Co. Minnesota94.4%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$59,498
+state $87,556
+$76,311
+state $111,492
+$35,185
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Aitkin Co. $31,397 $15.09 $0 $413 $150 $725 $735 $263 $330
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Aitkin Co. $64,585 $20.70 $408 $940 $530 $959 $1,439 $439 $667
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+5,916 100.0% 100.0%
+307 5.2% 4.0%
+543 9.2% 4.0%
+737 12.5% 6.2%
+813 13.7% 8.9%
+1,451 24.5% 25.7%
+1,444 24.4% 33.6%
+621 10.5% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$235,100
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent32.6%
+47.1%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$1,514COUNTY PROFILE Aitkin Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Aitkin Co.Median Household Income
+Median Family Income
+$912The cost of living has increased over the past 2 years with costs up in many areas. Aitkin Co. had a lower cost of living than the state, with a 
+required hourly wage of $15.09 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of $20.7 
+for a typical family with 2 adults and 1 child (see Table 9).
+Aitkin Co. had a lower median house value than the state, having the 33rd highest value of the 87 counties in 2022. Aitkin Co.'s housing stock 
+was newer than the state's, with a higher percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeAitkin Co. had a lower median household income than the state, and a higher percentage of households with incomes below $50,000. Overall, 
+Aitkin Co. had the 85th highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs20.8%
+11.7%20.8%
+15.4%19.7%
+15.7%14.3%
+13.5%15.1%
+19.7%9.1%
+24.0%Aitkin Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+7.1%
+19.3%
+25.6%
+26.2%
+11.6%
+10.2%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 10% 20% 30%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Aitkin Co. Minnesota
+23.4%
+13.3%
+16.2% 9.0%38.1%41.4%
+15.2%10.7%7.5%25.1%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$23.47     139,940 100.0% 1.0 $26.22      2,920,470 100.0%
+$46.38          7,780 5.6% 0.8 $59.38 200,060 6.9%
+$36.09          6,060 4.3% 0.6 $39.95 208,210 7.1%
+$38.42          2,100 1.5% 0.4 $50.02 97,460 3.3%
+$40.58          2,240 1.6% 0.8 $45.03 57,950 2.0%
+$36.86          1,730 1.2% 1.1 $38.33 32,150 1.1%
+$27.67          4,330 3.1% 1.5 $29.82 59,290 2.0%
+$40.98             530 0.4% 0.5 $49.52 20,750 0.7%
+$25.07          8,410 6.0% 1.0 $27.84 170,270 5.8%
+$23.54          1,280 0.9% 0.7 $28.84 36,030 1.2%
+$40.04       11,570 8.3% 1.3 $46.51 187,480 6.4%
+$18.28       10,020 7.2% 1.2 $18.67 176,750 6.1%
+$27.12          3,020 2.2% 1.3 $29.37 46,960 1.6%
+$14.56       14,420 10.3% 1.2 $16.05 240,830 8.2%
+$17.77          4,660 3.3% 1.2 $19.16 81,700 2.8%
+$17.15          3,520 2.5% 1.2 $17.54 63,300 2.2%
+$16.71       11,750 8.4% 1.0 $18.66 244,780 8.4%
+$22.70       16,400 11.7% 1.0 $24.07 340,040 11.6%
+$24.08             230 0.2% 1.5 $23.48 3,300 0.1%
+$34.23          7,820 5.6% 1.4 $34.20 114,050 3.9%
+$30.21          6,770 4.8% 1.3 $30.40 105,650 3.6%
+$25.14          6,360 4.5% 0.6 $23.56 205,220 7.0%
+$21.57          8,930 6.4% 0.8 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+8,587 $18.66
+185 $50.94
+276 $26.51
+30 $29.91
+305 $31.47
+77 $28.87
+229 $20.86
+302 $21.23
+1,091 $39.45
+976 $17.84
+79 $20.78
+1,381 $14.85
+290 $15.85
+453 $16.99
+1,347 $15.90
+303 $17.38
+61 $24.60
+331 $22.85
+83 $20.38
+435 $19.58 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $23.47 in 2024, wages were lower in Region 3 than the state. Overall, Region 3 had the 7th highest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($46.38) and lowest for food preparation and 
+serving related jobs ($14.56) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Aitkin Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 3 State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Northeast Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairAitkin Co. is a part of the Northeast planning region. There were 8587 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryMining 
+0%
+Construction 
+2%Manufacturing 
+2%
+Utilities 
+1%
+Wholesale Trade 
+3%
+Retail Trade 
+17%Transportation 
+and Warehousing 
+3%
+Information 
+1%
+Finance and 
+Insurance 
+1%
+Real Estate and 
+Rental and 
+Leasing 
+0%Professional and 
+Technical 
+Services 
+3%
+Management 
+of Companies 
+and 
+Enterprises Administrativ
+e and Waste 
+Services 
+1%Educational 
+Services 
+5%Health Care 
+and Social 
+Assistance 
+31%Arts, 
+Entertainment, 
+and Recreation 
+2%Accommodatio
+n and Food 
+Services 
+15%Other Services, 
+Ex. Public Admin 
+6%Public 
+Administration 
+7%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Home Health and Personal 
+Care Aides
+$34,948/yr
+Retail Salespersons
+$33,663/yr
+Cashiers
+$29,976/yr
+Cooks, Restaurant
+$37,144/yr
+Fast Food and Counter 
+Workers
+$30,037/yr
+Teaching Assistants, Except 
+Postsecondary
+$38,927/yr
+Waiters and Waitresses
+$22,936/yr
+Janitors and Cleaners, 
+Except Maids and 
+$36,904/yr
+Maids and Housekeeping 
+Cleaners
+$33,611/yr
+Maintenance and Repair 
+Workers, General
+$50,367/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+153,945           159,102      3.3% 5,157
+5,228                5,268         0.8% 40
+1,352                1,342         -0.7% -10
+7,006                7,544         7.7% 538
+8,777                9,016         2.7% 239
+3,202                3,359         4.9% 157
+16,565              16,360      -1.2% -205
+4,151                4,437         6.9% 286
+1,222                1,208         -1.1% -14
+5,827                5,846         0.3% 19
+5,808                6,264         7.9% 456
+3,097                3,231         4.3% 134
+12,004              12,056      0.4% 52
+31,799              33,864      6.5% 2,065
+17,159              18,243      6.3% 1,084
+5,953                6,118         2.8% 165
+15,176              15,440      1.7% 264
+Source: DEED 2022-2032 Employment OutlookHeavy and Tractor-Trailer Truck Drivers
+Automotive Service Technicians and 
+Mechanics
+Substance abuse, behavioral disorder, and 
+mental health counselors
+$47,014/yrNursing Assistants Registered Nurses General and Operations Managers
+$40,605/yr $81,894/yr $76,245/yrCOUNTY PROFILE Aitkin Co.
+OCCUPATIONS IN DEMAND
+Table 13. Northeast Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Licensed Practical and Licensed Vocational 
+NursesPolice and Sheriff's Patrol 
+OfficersAccountants and Auditors
+$54,185/yr $76,015/yr $71,413/yr
+Radiologic Technologists and 
+TechniciansHuman Resources Specialists
+$61,962/yr $71,154/yr $65,973/yr
+Child, Family, and School Social 
+Workers
+$49,373/yr $43,268/yr $69,154/yr
+$65,008/yr $100,366/yr
+Emergency Medical TechniciansForest and Conservation 
+TechniciansSubstitute Teachers, Short-TermBookkeeping, Accounting, and Auditing 
+ClerksHuman Resources Assistants, 
+Except Payroll and TimekeepingElementary School Teachers, 
+Except Special Education
+$47,607/yr $48,119/yr $63,522/yr
+Dental Hygienists Physician Assistants
+$54,132/yr $84,405/yr $120,821/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Northeast Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityAitkin Co. is a part of the Northeast planning region, which is projected to see a 3.3% increase in employment levels over the next decade. In 
+addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$62,131/yr
+$41,313/yrMachinists Surgical TechnologistsMedical and Health Services 
+Managers
+Medical Assistants Respiratory Therapists Nurse Practitioners
+$80,721/yr $132,823/yr
+Source: DEED Occupations in DemandHeating, Air Conditioning, and 
+Refrigeration Mechanics and InstallersCivil Engineering Technologists 
+and TechniciansSecondary School Teachers, Except 
+Special and Career/Technical 
+$66,247/yr $73,049/yr $65,592/yr
+Community Health Workers
+$39,523/yr $53,442/yr
+593
+320
+298
+170
+90
+348
+25
+211
+40
+873
+849
+57
+611
+241
+260
+-255
+-888
+-43
+595
+334
+-157
+5853,000
+2,173
+546
+698
+419
+2,015
+194
+4,062
+999
+3,925
+7,193
+1,479
+12,125
+3,674
+2,849
+8,073
+9,529
+402
+3,293
+2,964
+2,924
+5,427-5,000 0 5,000 10,000 15,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction and…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and Extraction…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+475 business establishments annual average wage
+4,324 jobs total industry payroll
+311 jobs  
+7.7% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+4,324 100.0% $47,725 Total, All Industries 0.9%
+26 0.6% $12,899 Agriculture, Forestry, Fish & Hunt 8.3%
+44 1.0% $36,795 Mining -7.4%
+249 5.8% $55,998 Construction -1.2%
+342 7.9% $46,269 Manufacturing -12.7%
+#N/A #N/A #N/A Utilities #N/A
+121 2.8% $53,357 Wholesale Trade -2.4%
+621 14.4% $30,953 Retail Trade 1.3%
+#N/A #N/A #N/A Transportation & Warehousing #N/A
+13 0.3% $73,258 Information 0.0%
+97 2.2% $57,148 Finance & Insurance -1.0%
+22 0.5% $28,115 Real Estate & Rental & Leasing 11.9%
+105 2.4% $54,579 Professional & Technical Services 7.4%
+#N/A #N/A #N/A Management of Companies #N/A
+104 2.4% $12,574 Admin. Support & Waste Mgmt. Svcs. 0.5%
+423 9.8% $22,846 Educational Services -5.4%
+824 19.0% $30,985 Health Care & Social Assistance 7.9%
+89 2.1% $29,990 Arts, Entertainment, & Recreation 43.5%
+567 13.1% $19,318 Accommodation & Food Services 1.4%
+159 3.7% $22,773 Other Services 6.7%
+368 8.5% $54,494 Public Administration 1.1%
+For more information on Aitkin Co.'s population, labor force, and economic trends, contact:
+Carson Gorecki Regional Analyst, Northeast Minnesota
+CareerForce Duluth  |  402 West 1st Street  |  Duluth MN 55802-1516
+Office: 218-302-8413 Email: carson.gorecki@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Aitkin Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Aitkin Co. had the 64th largest economy of the 87 counties in the 
+state. Aitkin Co. was the 36th fastest growing in the past year and the 25th fastest growing since 2019. From 2019 to 2024, employment in 
+Aitkin Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Aitkin Co. Industry Employment 
+Statistics, 2024Job change,                    
+2019-2024$47,725
+$206,364,084
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration0.9%
+8.3%
+-7.4%
+-1.2%
+-12.7%
+#N/A
+-2.4%
+1.3%
+#N/A
+0.0%
+-1.0%
+11.9%
+7.4%
+#N/A
+0.5%
+-5.4%
+7.9%
+43.5%
+1.4%
+6.7%
+1.1%-20.0% 0.0% 20.0% 40.0% 60.0%Figure 17. Change in Jobs, 2023 -20244,231
+4,151
+3,7964,137
+4,0134,1474,2854,324
+2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+3,2003,4003,6003,8004,0004,2004,400
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Aitkin Co. Minnesota
+
+Provide your analysis as JSON following the required schema. Use ONLY the allowed fields from the fact sheet (economy, market, insurance, weather flags, NASS progress). Ignore any agronomic variables already modeled by ML.
+
+Return ONLY the JSON object, no other text.
+
+================================================================================
+FACT SHEET CONTENT (from PDF)
+================================================================================
+
+2024 population: 16,335 people
+638 people 56.5 years
+4.1% increase state: 38.6 years
+Number Percent
+Under 5 years 600 3.7%
+5-14 years 1,464 9.0%
+15-24 years 1,433 8.8%
+25-34 years 1,185 7.3%
+35-44 years 1,440 8.8%
+45-54 years 1,632 10.0%
+55-64 years 3,039 18.6%
+65-74 years 3,171 19.4%
+75-84 years 1,715 10.5%
+85 years & over 656 4.0%
+Total Population 16,335 100.0%
+Births Deaths Total
+Aitkin Co. 639 -524 490 1,014 1,156
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 113 0.7% -33 -22.6% 8.6% 24.7%
+Europe 34 30.1% -30 -46.9% 8.8% -3.4%
+Asia 14 12.4% -19 -57.6% 35.7% 18.1%
+Africa 6 5.3% -2 -25.0% 28.3% 78.8%
+Oceania 0 0.0% -3 -100.0% 0.4% 5.4%
+Americas: 59 52.2% 21 55.3% 26.7% 8.7%
+Latin America 35 31.0% 12 52.2% 24.2% 9.7%
+Northern America 24 21.2% 9 60.0% 2.5% 0.4%Aitkin Co. suffered a negative natural increase - more deaths than births from 2020 to 2024, but also experienced net in-migration - meaning 
+more people moved in than moved out. In addition to domestic in-migration, Aitkin Co. welcomed net international in-migration - gaining 
+new Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Aitkin Co. has a smaller percentage of foreign-born residents. From 2013 to 2023, Aitkin Co. saw a decrease in the 
+number of foreign-born residents, though it was slower than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Aitkin Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Aitkin Co. is a part of Economic Development Region 3, which is located in the 
+Northeast Planning Region.Aitkin Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+1,131
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program25
+81,091Aitkin Co. is the 53rd largest of the 87 counties in the state. Its population increased so far this decade, ranking as the 11th fastest growing in 
+the state from 2020 to 2024. Aitkin Co.'s population has an older median age than the state and a larger percentage of people aged 65 years 
+and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+688
+1,841
+1,501
+1,210
+2,092
+2,137
+2,315
+1,993
+1,130
+394600
+1,464
+1,433
+1,185
+1,440
+1,632
+3,039
+3,171
+1,715
+656Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+30%
+13%
+5% 0%31%21%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+15,930 100.0% -0.6% 100.0% 6.8%
+14,887 93.5% -2.7% 78.4% -2.2%
+113 0.7% 79.4% 6.8% 38.9%
+251 1.6% -15.2% 0.9% -11.6%
+ 26 0.2% -38.1% 5.1% 29.6%
+100 0.6% 316.7% 2.7% 96.1%
+553 3.5% 83.7% 6.2% 168.3%
+233 1.5% 41.2% 6.2% 37.5%
+Aitkin Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change16,050      16,132            
+Under 5 years 534                 497                   -37 -6.9%
+5-14 years 1,236              1,110                -126 -10.2%
+15-24 years 1,406              1,082                -324 -23.0%
+25-34 years 1,144              1,259                115 10.1%
+35-44 years 1,435              1,363                -72 -5.0%
+45-54 years 1,661              1,907                246 14.8%
+55-64 years 2,882              2,620                -262 -9.1%
+65-74 years 3,320              3,475                155 4.7%
+75-84 years 1,813              2,097                284 15.7%
+85 years & over 619                 722                   103 16.6%
+Total Population 16,050          16,132            82 0.5%
+54.6%
+68.8%
+12.4%
+12.2%
+5.7%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Aitkin Co. has a lower percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a lower 
+percentage of people with at least some college experience. Aitkin Co. also has a higher percentage of people with an Associate's degree and 
+a lower percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:92.8%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Aitkin Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Aitkin Co.'s population is expected to grow from 2025 to 2035, with a rate of change 
+that is slower than the projected statewide growth rate (3.7%). In addition to the overall growth, the number of people aged 65 years and 
+older is expected to increase over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSAitkin Co.'s population was becoming more racially diverse over time. Since 2013, the white population declined, but the number of people of 
+other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Aitkin Co. Minnesota
+7%
+38%
+24%12%12%6%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree93.5%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 2,000 4,000 6,000 8,000 10,000 12,000 14,000 16,000 18,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+7,091 available workers
+-627 workers
+-8.1% decline
+5.1% unemployment rate
+2.8% state
+362 unemployed workers
+Aitkin Co.
+Average of 199 Average of 11 Average of -26
+new workers per year new workers per year fewer workers per year
+2025 2035
+16 to 24 years 817 641
+25 to 54 years 3,615 3,855
+55 to 64 years 1,565 1,423
+65 years & over 728 776
+Total Labor Force 6,725 6,696Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Aitkin Co. averaged an 
+annual gain of new workers from 2000 to 2010, and most recently a loss of fewer workers since 2010 (see Figure 7). Moving forward, Aitkin 
+Co. is expected to see a labor force decline from 2025 to 2035 (see Table 6).COUNTY PROFILE Aitkin Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 5.1%, Aitkin Co. had a higher unemployment rate than 
+the state in 2024. After the pandemic recession Aitkin Co.'s 
+unemployment rate declined compared to the 6.6% pre-
+pandemic rate posted in 2019. The number of unemployed 
+workers actively seeking work in Aitkin Co. increased over 
+the past year, and is down compared to 2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Northeast returned to pre-pandemic levels, 
+but employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-17818141
+58
+-600-400-20002004006008001,0001,2001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,8027,718
+7,052
+6,8747,091
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+6,0006,2006,4006,6006,8007,0007,2007,4007,6007,8002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Aitkin Co.
+1.21.6
+1.4
+1.0
+0.80.92.0
+0.50.40.6 0.6
+0.00.51.01.52.02.5
+ - 5,000 10,000 15,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Northeast Minnesota Vacancies
+Northeast Minnesota Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+6,608 48.2% 5.8% 68.5% 3.9% 3,428 3,179
+308 54.3% 6.5% 52.7% 9.9% 142 166
+466 74.9% 9.7% 83.4% 6.5% 258 208
+2,228 87.0% 4.9% 88.7% 3.5% 1,138 1,090
+1,313 82.5% 6.7% 87.8% 2.9% 710 603
+1,610 54.3% 5.4% 72.8% 3.0% 802 808
+563 18.2% 6.0% 27.8% 3.4% 302 262
+118 5.1% 0.8% 6.6% 3.1% 76 42
+6,238 48.2% 5.4% 67.5% 3.4% White alone 94.4%
+21 29.2% 33.3% 71.0% 8.4% Black or African American 0.3%
+70 40.2% 22.9% 57.7% 11.4% American Indian & Alaska Native 1.1%
+13 76.4% 0.0% 74.6% 3.5% Asian or Other Pac. Islanders 0.2%
+20 20.8% 0.0% 75.9% 5.6% Some Other Race 0.3%
+244 59.7% 9.0% 74.2% 6.1% Two or More Races 3.7%
+130 73.9% 7.7% 77.1% 5.9%
+572 49.6% 7.5% 55.3% 9.5%
+5,152 72.4% 5.5% 84.4% 3.3%
+261 66.2% 7.5% 67.1% 4.7%
+1,553 64.7% 3.6% 76.5% 2.6%
+2,290 77.3% 4.0% 85.0% 3.6%
+1,046 77.0% 3.5% 90.5% 2.0%
+Number Percent Number Percent
+5,993 99.1% 2,870,678 97.8%
+4,064 67.2% 1,984,232 67.6%
+1,929 31.9% 886,447 30.2%
+54 0.9% 64,576 2.2%
+5,079 84.0% 2,286,563 77.9%
+0 0.0% 61,640 2.1%
+236 3.9% 120,345 4.1%
+726 12.0% 463,770 15.8%
+1,101 18.2% 478,446 16.3%
+1,820 30.1% 924,605 31.5%
+1,070 17.7% 651,626 22.2%
+949 15.7% 551,828 18.8%
+296 4.9% 176,115 6.0%
+810 13.4% 149,698 5.1%
+28.9 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanAitkin Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKAitkin Co. had a lower labor force participation rate than the state. The labor force in Aitkin Co. is less racially diverse than the state (where 
+80.0% of workers are white alone), but is becoming more diverse over time.
+A smaller percentage of workers in Aitkin Co. worked in the same county in which they live compared to the state. Aitkin Co. also had a longer 
+average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesAitkin Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Aitkin Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+4.7%
+10.7%
+17.6%
+33.6%
+15.0%
+18.4%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Aitkin Co. Minnesota94.4%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$59,498
+state $87,556
+$76,311
+state $111,492
+$35,185
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Aitkin Co. $31,397 $15.09 $0 $413 $150 $725 $735 $263 $330
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Aitkin Co. $64,585 $20.70 $408 $940 $530 $959 $1,439 $439 $667
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+5,916 100.0% 100.0%
+307 5.2% 4.0%
+543 9.2% 4.0%
+737 12.5% 6.2%
+813 13.7% 8.9%
+1,451 24.5% 25.7%
+1,444 24.4% 33.6%
+621 10.5% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$235,100
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent32.6%
+47.1%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$1,514COUNTY PROFILE Aitkin Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Aitkin Co.Median Household Income
+Median Family Income
+$912The cost of living has increased over the past 2 years with costs up in many areas. Aitkin Co. had a lower cost of living than the state, with a 
+required hourly wage of $15.09 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of $20.7 
+for a typical family with 2 adults and 1 child (see Table 9).
+Aitkin Co. had a lower median house value than the state, having the 33rd highest value of the 87 counties in 2022. Aitkin Co.'s housing stock 
+was newer than the state's, with a higher percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeAitkin Co. had a lower median household income than the state, and a higher percentage of households with incomes below $50,000. Overall, 
+Aitkin Co. had the 85th highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs20.8%
+11.7%20.8%
+15.4%19.7%
+15.7%14.3%
+13.5%15.1%
+19.7%9.1%
+24.0%Aitkin Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+7.1%
+19.3%
+25.6%
+26.2%
+11.6%
+10.2%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 10% 20% 30%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Aitkin Co. Minnesota
+23.4%
+13.3%
+16.2% 9.0%38.1%41.4%
+15.2%10.7%7.5%25.1%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$23.47     139,940 100.0% 1.0 $26.22      2,920,470 100.0%
+$46.38          7,780 5.6% 0.8 $59.38 200,060 6.9%
+$36.09          6,060 4.3% 0.6 $39.95 208,210 7.1%
+$38.42          2,100 1.5% 0.4 $50.02 97,460 3.3%
+$40.58          2,240 1.6% 0.8 $45.03 57,950 2.0%
+$36.86          1,730 1.2% 1.1 $38.33 32,150 1.1%
+$27.67          4,330 3.1% 1.5 $29.82 59,290 2.0%
+$40.98             530 0.4% 0.5 $49.52 20,750 0.7%
+$25.07          8,410 6.0% 1.0 $27.84 170,270 5.8%
+$23.54          1,280 0.9% 0.7 $28.84 36,030 1.2%
+$40.04       11,570 8.3% 1.3 $46.51 187,480 6.4%
+$18.28       10,020 7.2% 1.2 $18.67 176,750 6.1%
+$27.12          3,020 2.2% 1.3 $29.37 46,960 1.6%
+$14.56       14,420 10.3% 1.2 $16.05 240,830 8.2%
+$17.77          4,660 3.3% 1.2 $19.16 81,700 2.8%
+$17.15          3,520 2.5% 1.2 $17.54 63,300 2.2%
+$16.71       11,750 8.4% 1.0 $18.66 244,780 8.4%
+$22.70       16,400 11.7% 1.0 $24.07 340,040 11.6%
+$24.08             230 0.2% 1.5 $23.48 3,300 0.1%
+$34.23          7,820 5.6% 1.4 $34.20 114,050 3.9%
+$30.21          6,770 4.8% 1.3 $30.40 105,650 3.6%
+$25.14          6,360 4.5% 0.6 $23.56 205,220 7.0%
+$21.57          8,930 6.4% 0.8 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+8,587 $18.66
+185 $50.94
+276 $26.51
+30 $29.91
+305 $31.47
+77 $28.87
+229 $20.86
+302 $21.23
+1,091 $39.45
+976 $17.84
+79 $20.78
+1,381 $14.85
+290 $15.85
+453 $16.99
+1,347 $15.90
+303 $17.38
+61 $24.60
+331 $22.85
+83 $20.38
+435 $19.58 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $23.47 in 2024, wages were lower in Region 3 than the state. Overall, Region 3 had the 7th highest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($46.38) and lowest for food preparation and 
+serving related jobs ($14.56) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Aitkin Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 3 State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Northeast Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairAitkin Co. is a part of the Northeast planning region. There were 8587 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryMining 
+0%
+Construction 
+2%Manufacturing 
+2%
+Utilities 
+1%
+Wholesale Trade 
+3%
+Retail Trade 
+17%Transportation 
+and Warehousing 
+3%
+Information 
+1%
+Finance and 
+Insurance 
+1%
+Real Estate and 
+Rental and 
+Leasing 
+0%Professional and 
+Technical 
+Services 
+3%
+Management 
+of Companies 
+and 
+Enterprises Administrativ
+e and Waste 
+Services 
+1%Educational 
+Services 
+5%Health Care 
+and Social 
+Assistance 
+31%Arts, 
+Entertainment, 
+and Recreation 
+2%Accommodatio
+n and Food 
+Services 
+15%Other Services, 
+Ex. Public Admin 
+6%Public 
+Administration 
+7%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Home Health and Personal 
+Care Aides
+$34,948/yr
+Retail Salespersons
+$33,663/yr
+Cashiers
+$29,976/yr
+Cooks, Restaurant
+$37,144/yr
+Fast Food and Counter 
+Workers
+$30,037/yr
+Teaching Assistants, Except 
+Postsecondary
+$38,927/yr
+Waiters and Waitresses
+$22,936/yr
+Janitors and Cleaners, 
+Except Maids and 
+$36,904/yr
+Maids and Housekeeping 
+Cleaners
+$33,611/yr
+Maintenance and Repair 
+Workers, General
+$50,367/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+153,945           159,102      3.3% 5,157
+5,228                5,268         0.8% 40
+1,352                1,342         -0.7% -10
+7,006                7,544         7.7% 538
+8,777                9,016         2.7% 239
+3,202                3,359         4.9% 157
+16,565              16,360      -1.2% -205
+4,151                4,437         6.9% 286
+1,222                1,208         -1.1% -14
+5,827                5,846         0.3% 19
+5,808                6,264         7.9% 456
+3,097                3,231         4.3% 134
+12,004              12,056      0.4% 52
+31,799              33,864      6.5% 2,065
+17,159              18,243      6.3% 1,084
+5,953                6,118         2.8% 165
+15,176              15,440      1.7% 264
+Source: DEED 2022-2032 Employment OutlookHeavy and Tractor-Trailer Truck Drivers
+Automotive Service Technicians and 
+Mechanics
+Substance abuse, behavioral disorder, and 
+mental health counselors
+$47,014/yrNursing Assistants Registered Nurses General and Operations Managers
+$40,605/yr $81,894/yr $76,245/yrCOUNTY PROFILE Aitkin Co.
+OCCUPATIONS IN DEMAND
+Table 13. Northeast Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Licensed Practical and Licensed Vocational 
+NursesPolice and Sheriff's Patrol 
+OfficersAccountants and Auditors
+$54,185/yr $76,015/yr $71,413/yr
+Radiologic Technologists and 
+TechniciansHuman Resources Specialists
+$61,962/yr $71,154/yr $65,973/yr
+Child, Family, and School Social 
+Workers
+$49,373/yr $43,268/yr $69,154/yr
+$65,008/yr $100,366/yr
+Emergency Medical TechniciansForest and Conservation 
+TechniciansSubstitute Teachers, Short-TermBookkeeping, Accounting, and Auditing 
+ClerksHuman Resources Assistants, 
+Except Payroll and TimekeepingElementary School Teachers, 
+Except Special Education
+$47,607/yr $48,119/yr $63,522/yr
+Dental Hygienists Physician Assistants
+$54,132/yr $84,405/yr $120,821/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Northeast Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityAitkin Co. is a part of the Northeast planning region, which is projected to see a 3.3% increase in employment levels over the next decade. In 
+addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$62,131/yr
+$41,313/yrMachinists Surgical TechnologistsMedical and Health Services 
+Managers
+Medical Assistants Respiratory Therapists Nurse Practitioners
+$80,721/yr $132,823/yr
+Source: DEED Occupations in DemandHeating, Air Conditioning, and 
+Refrigeration Mechanics and InstallersCivil Engineering Technologists 
+and TechniciansSecondary School Teachers, Except 
+Special and Career/Technical 
+$66,247/yr $73,049/yr $65,592/yr
+Community Health Workers
+$39,523/yr $53,442/yr
+593
+320
+298
+170
+90
+348
+25
+211
+40
+873
+849
+57
+611
+241
+260
+-255
+-888
+-43
+595
+334
+-157
+5853,000
+2,173
+546
+698
+419
+2,015
+194
+4,062
+999
+3,925
+7,193
+1,479
+12,125
+3,674
+2,849
+8,073
+9,529
+402
+3,293
+2,964
+2,924
+5,427-5,000 0 5,000 10,000 15,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction and…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and Extraction…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+475 business establishments annual average wage
+4,324 jobs total industry payroll
+311 jobs  
+7.7% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+4,324 100.0% $47,725 Total, All Industries 0.9%
+26 0.6% $12,899 Agriculture, Forestry, Fish & Hunt 8.3%
+44 1.0% $36,795 Mining -7.4%
+249 5.8% $55,998 Construction -1.2%
+342 7.9% $46,269 Manufacturing -12.7%
+#N/A #N/A #N/A Utilities #N/A
+121 2.8% $53,357 Wholesale Trade -2.4%
+621 14.4% $30,953 Retail Trade 1.3%
+#N/A #N/A #N/A Transportation & Warehousing #N/A
+13 0.3% $73,258 Information 0.0%
+97 2.2% $57,148 Finance & Insurance -1.0%
+22 0.5% $28,115 Real Estate & Rental & Leasing 11.9%
+105 2.4% $54,579 Professional & Technical Services 7.4%
+#N/A #N/A #N/A Management of Companies #N/A
+104 2.4% $12,574 Admin. Support & Waste Mgmt. Svcs. 0.5%
+423 9.8% $22,846 Educational Services -5.4%
+824 19.0% $30,985 Health Care & Social Assistance 7.9%
+89 2.1% $29,990 Arts, Entertainment, & Recreation 43.5%
+567 13.1% $19,318 Accommodation & Food Services 1.4%
+159 3.7% $22,773 Other Services 6.7%
+368 8.5% $54,494 Public Administration 1.1%
+For more information on Aitkin Co.'s population, labor force, and economic trends, contact:
+Carson Gorecki Regional Analyst, Northeast Minnesota
+CareerForce Duluth  |  402 West 1st Street  |  Duluth MN 55802-1516
+Office: 218-302-8413 Email: carson.gorecki@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Aitkin Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Aitkin Co. had the 64th largest economy of the 87 counties in the 
+state. Aitkin Co. was the 36th fastest growing in the past year and the 25th fastest growing since 2019. From 2019 to 2024, employment in 
+Aitkin Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Aitkin Co. Industry Employment 
+Statistics, 2024Job change,                    
+2019-2024$47,725
+$206,364,084
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration0.9%
+8.3%
+-7.4%
+-1.2%
+-12.7%
+#N/A
+-2.4%
+1.3%
+#N/A
+0.0%
+-1.0%
+11.9%
+7.4%
+#N/A
+0.5%
+-5.4%
+7.9%
+43.5%
+1.4%
+6.7%
+1.1%-20.0% 0.0% 20.0% 40.0% 60.0%Figure 17. Change in Jobs, 2023 -20244,231
+4,151
+3,7964,137
+4,0134,1474,2854,324
+2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+3,2003,4003,6003,8004,0004,2004,400
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Aitkin Co. Minnesota
+
+================================================================================
+INSTRUCTIONS
+================================================================================
+
+1. Copy the SYSTEM PROMPT above and paste it as the system message in Grok
+2. Copy the USER PROMPT above and paste it as the user message in Grok
+3. Grok should return a JSON response with the required schema:
+   - adj_raw: float in [-1, 1]
+   - adj: float (after bounds & damping)
+   - pred_yield_bu_ac: float (= ml_pred * (1 + adj))
+   - low_80: float
+   - high_80: float
+   - drivers: array of 3-5 short phrases
+4. The adjustment uses alpha=0.15 and damping based on ML confidence
+5. Only use allowed fields from fact sheet (economy, market, insurance, weather flags, NASS progress)

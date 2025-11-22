@@ -18,7 +18,6 @@ from pathlib import Path
 # Add current directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from factsheet_builder import FactsheetBuilder
 from llm_track import LLMTrack
 from hybrid_aggregation import HybridAggregation, compute_uncertainty_intervals
 
@@ -28,44 +27,39 @@ class HybridModel:
     Complete hybrid model pipeline
     """
     
-    def __init__(self, data_path: str, api_key: str, 
+    def __init__(self, api_key: str, 
                  ml_model_path: Optional[str] = None,
+                 fact_sheet_dir: str = "Fact Sheet",
                  method: str = "adjust_only"):
         """
         Initialize hybrid model
         
         Args:
-            data_path: Path to consolidated data CSV
             api_key: Grok API key
             ml_model_path: Path to trained ML model pickle (optional)
+            fact_sheet_dir: Directory containing PDF fact sheets (default: "Fact Sheet")
             method: "adjust_only" (default) or "stacked"
         """
         print("="*80)
         print("INITIALIZING HYBRID MODEL")
         print("="*80)
         
-        # Load data
-        print(f"\n[1/4] Loading data from {data_path}...")
-        self.data = pd.read_csv(data_path)
-        print(f"  Loaded {len(self.data)} rows, {len(self.data.columns)} columns")
-        
         # Initialize components
-        print("\n[2/4] Initializing components...")
-        self.factsheet_builder = FactsheetBuilder(self.data)
-        self.llm_track = LLMTrack(api_key=api_key)
+        print("\n[1/3] Initializing components...")
+        self.llm_track = LLMTrack(api_key=api_key, fact_sheet_dir=fact_sheet_dir)
         self.hybrid_agg = HybridAggregation(method=method)
         
         # Load ML model if provided
         self.ml_model = None
         if ml_model_path and os.path.exists(ml_model_path):
-            print(f"\n[3/4] Loading ML model from {ml_model_path}...")
+            print(f"\n[2/3] Loading ML model from {ml_model_path}...")
             with open(ml_model_path, 'rb') as f:
                 self.ml_model = pickle.load(f)
             print("  ML model loaded")
         else:
-            print("\n[3/4] No ML model provided - will need ML predictions as input")
+            print("\n[2/3] No ML model provided - will need ML predictions as input")
         
-        print("\n[4/4] Hybrid model initialized")
+        print("\n[3/3] Hybrid model initialized")
         print("="*80)
     
     def get_ml_prediction(self, X: pd.DataFrame, use_log_transform: bool = True) -> np.ndarray:
@@ -96,7 +90,6 @@ class HybridModel:
                       X_features: Optional[pd.DataFrame] = None,
                       p10_ml: Optional[float] = None,
                       p90_ml: Optional[float] = None,
-                      cdl_fraction: Optional[float] = None,
                       use_fallback: bool = True) -> Dict[str, any]:
         """
         Predict for single (county, year) using hybrid model
@@ -108,7 +101,6 @@ class HybridModel:
             X_features: Feature matrix for ML prediction (if y_ml not provided)
             p10_ml: ML 10th percentile (optional)
             p90_ml: ML 90th percentile (optional)
-            cdl_fraction: CDL fraction (optional)
             use_fallback: Use ML baseline if LLM fails (default: True)
             
         Returns:
@@ -120,25 +112,15 @@ class HybridModel:
                 raise ValueError("Must provide either y_ml or X_features")
             y_ml = self.get_ml_prediction(X_features)[0]
         
-        # Build factsheet
-        factsheet = self.factsheet_builder.build_factsheet(
-            fips=fips,
-            year=year,
-            ml_baseline=y_ml,
-            cdl_fraction=cdl_fraction
-        )
-        
-        # Format for LLM
-        factsheet_text = self.factsheet_builder.format_factsheet_for_llm(factsheet)
-        
-        # Get LLM adjustment
+        # Get LLM adjustment using PDF fact sheet
         if use_fallback:
             adjustment, drivers = self.llm_track.get_adjustment_with_fallback(
-                factsheet_text,
+                fips=fips,
+                ml_baseline=y_ml,
                 fallback_adjustment=0.0
             )
         else:
-            adjustment, drivers, success = self.llm_track.get_adjustment(factsheet_text)
+            adjustment, drivers, success = self.llm_track.get_adjustment(fips, y_ml)
             if not success:
                 raise ValueError("LLM adjustment failed and use_fallback=False")
         
@@ -153,14 +135,12 @@ class HybridModel:
         return {
             'fips': fips,
             'year': year,
-            'county_name': factsheet.get('county_name', 'Unknown'),
             'y_ml': y_ml,
             'adjustment': adjustment,
             'drivers': drivers,
             'y_hyb': hybrid_result['y_hyb'],
             'p10_hyb': hybrid_result.get('p10_hyb'),
-            'p90_hyb': hybrid_result.get('p90_hyb'),
-            'factsheet': factsheet
+            'p90_hyb': hybrid_result.get('p90_hyb')
         }
     
     def predict_batch(self, test_data: pd.DataFrame,
@@ -239,14 +219,12 @@ class HybridModel:
                     results.append({
                         'fips': fips,
                         'year': year,
-                        'county_name': row.get('county_name', 'Unknown'),
                         'y_ml': y_ml,
                         'adjustment': 0.0,
                         'drivers': None,
                         'y_hyb': y_ml,
                         'p10_hyb': p10,
-                        'p90_hyb': p90,
-                        'factsheet': None
+                        'p90_hyb': p90
                     })
                 else:
                     raise
@@ -291,12 +269,12 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description='Hybrid Model for Corn Yield Prediction')
-    parser.add_argument('--data', type=str, default='../consolidated_data_phase3.csv',
-                       help='Path to consolidated data CSV')
     parser.add_argument('--api-key', type=str, default=None,
                        help='Grok API key (or read from API Key.txt)')
     parser.add_argument('--ml-model', type=str, default=None,
                        help='Path to trained ML model pickle')
+    parser.add_argument('--fact-sheet-dir', type=str, default='Fact Sheet',
+                       help='Directory containing PDF fact sheets')
     parser.add_argument('--method', type=str, default='adjust_only',
                        choices=['adjust_only', 'stacked'],
                        help='Hybrid method')
@@ -318,9 +296,9 @@ def main():
     
     # Initialize model
     model = HybridModel(
-        data_path=args.data,
         api_key=api_key,
         ml_model_path=args.ml_model,
+        fact_sheet_dir=args.fact_sheet_dir,
         method=args.method
     )
     

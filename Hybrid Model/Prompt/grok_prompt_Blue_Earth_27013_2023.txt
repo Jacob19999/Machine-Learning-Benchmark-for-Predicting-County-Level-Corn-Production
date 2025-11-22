@@ -1,0 +1,1938 @@
+================================================================================
+GROK PROMPT FOR MANUAL UPLOAD
+================================================================================
+
+COUNTY INFORMATION
+--------------------------------------------------------------------------------
+Rank: 5 (of 83 Counties, >= 1,000,000 bushels)
+County: Blue Earth
+FIPS Code: 27013
+Year: 2023
+Total Production (all years): 5,288,979,402 bushels
+
+ML BASELINE PREDICTION
+--------------------------------------------------------------------------------
+ML Baseline (total): 275,480,373 bushels
+ML Pred (bu/ac): 180.00
+ML Band Width: 36.00
+Train RMSE: 18.00
+P10 (10th percentile): 220,384,298 bushels
+P90 (90th percentile): 330,576,448 bushels
+Uncertainty Interval: [220,384,298, 330,576,448] bushels
+
+RECENT PRODUCTION HISTORY
+--------------------------------------------------------------------------------
+  2022: 325,171,119 bushels
+  2021: 251,944,000 bushels
+  2020: 249,326,000 bushels
+  2019: 239,729,000 bushels
+  2018: 214,305,000 bushels
+
+================================================================================
+SYSTEM PROMPT (for Grok)
+================================================================================
+
+You are a conservative adjustment module for county-level corn yield.
+
+Your ONLY inputs are a structured "factsheet" with exogenous signals that the ML model does not capture well.
+
+You must ignore agronomic variables already modeled by ML (soils, ethanol distance, historical yields, GLDAS/PRISM windowed indices, USDM, NDVI, etc.).
+
+Goal: Propose a small, bounded multiplicative adjustment to the provided ML baseline prediction based solely on the allowed facts.
+
+Hard constraints
+
+Use only these fields if present:
+
+economy_population, economy_unemployment_rate_pct, economy_available_workers,
+
+economy_required_hourly_wage_single_usd, economy_median_hourly_wage_region_usd,
+
+economy_median_household_income_usd, selected industry wage/size metrics.
+
+market_basis_anomaly_usd, elevator_outage_flag, rail_disruption_flag.
+
+prevented_planting_flag, pp_share_pct, insurance_disaster_flag.
+
+hail_event_flag, derecho_event_flag, localized_flood_flag.
+
+nass_planting_progress_pct, nass_harvest_progress_pct (weekly progress summaries).
+
+ML meta: ml_pred (bu/ac), ml_band_width (U−L), train_rmse.
+
+Forbidden: any soils, ethanol distance, recent yields, or windowed agronomic/drought/canopy variables. If such fields appear, ignore them.
+
+Compute a raw signed adjustment adj_raw in [-1, +1] reflecting only exogenous stress/support.
+
+Negative signals (examples): very high unemployment, severe labor shortages, high required_hourly_wage vs regional median, active logistics disruptions, hail/derecho flags, widespread prevented planting.
+
+Positive signals (examples): strong labor availability with low wage pressure and no disruptions.
+
+The final applied adjustment is bounded and damped by ML confidence:
+
+alpha = 0.15 (max magnitude).
+
+kappa = exp( - ml_band_width / train_rmse ).
+
+adj = clip(adj_raw, -alpha, +alpha) * (1 - kappa).
+
+Calibrated caution: If evidence is mixed or weak, set adj_raw = 0.0. Never exceed the bounds.
+
+Output JSON only with this schema (numbers only, no explanations in prose):
+
+For a SINGLE county:
+{
+  "adj_raw": float,                  // in [-1, 1], before damping
+  "adj": float,                      // after bounds & damping rule above
+  "pred_yield_bu_ac": float,         // = ml_pred * (1 + adj)
+  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj)
+  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj)
+  "drivers": [ "short phrase", ... ] // 3–5 concise drivers referencing ONLY allowed fields
+}
+
+For MULTIPLE counties (differentiated by FIPS):
+{
+  "<fips_code>": {
+    "adj_raw": float,
+    "adj": float,
+    "pred_yield_bu_ac": float,
+    "low_80": float,
+    "high_80": float,
+    "drivers": [ "short phrase", ... ]
+  },
+  "<fips_code>": { ... },
+  ...
+}
+
+No chain-of-thought. Do not explain your reasoning; just fill the JSON.
+
+If required fields are missing (e.g., ml_pred, ml_band_width, train_rmse), return:
+{"adj_raw": 0.0, "adj": 0.0, "pred_yield_bu_ac": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
+
+FIPS codes should be strings (e.g., "27129" not 27129).
+
+================================================================================
+USER PROMPT (for Grok)
+================================================================================
+
+Analyze this corn production factsheet and provide a bounded adjustment to the ML baseline prediction.
+
+County FIPS: 27013
+
+ML Meta:
+- ml_pred (bu/ac): 180.00
+- ml_band_width (U−L): 36.00
+- train_rmse: 18.00
+
+Fact Sheet Information:
+2024 population: 70,700 people
+1,588 people 31.5 years
+2.3% increase state: 38.6 years
+Number Percent
+Under 5 years 3,668 5.2%
+5-14 years 8,002 11.3%
+15-24 years 17,428 24.7%
+25-34 years 9,172 13.0%
+35-44 years 8,172 11.6%
+45-54 years 6,635 9.4%
+55-64 years 7,217 10.2%
+65-74 years 6,024 8.5%
+75-84 years 2,990 4.2%
+85 years & over 1,392 2.0%
+Total Population 70,700 100.0%
+Births Deaths Total
+Blue Earth Co. 1,597 581 2,908 2,327 993
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 4,049 5.8% 1,522 60.2% 8.6% 24.7%
+Europe 339 8.4% 5 1.5% 8.8% -3.4%
+Asia 1,407 34.7% 249 21.5% 35.7% 18.1%
+Africa 1,563 38.6% 834 114.4% 28.3% 78.8%
+Oceania 3 0.1% -21 -87.5% 0.4% 5.4%
+Americas: 737 18.2% 455 161.3% 26.7% 8.7%
+Latin America 608 15.0% 361 146.2% 24.2% 9.7%
+Northern America 129 3.2% 94 268.6% 2.5% 0.4%Blue Earth Co. enjoyed a natural increase - more births than deaths from 2020 to 2024, but also experienced net in-migration - meaning more 
+people moved in than moved out. Despite suffering domestic out-migration, Blue Earth Co. welcomed net international in-migration - gaining 
+new Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Blue Earth Co. has a smaller percentage of foreign-born residents. From 2013 to 2023, Blue Earth Co. saw an increase 
+in the number of foreign-born residents, which was faster than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Blue Earth Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Blue Earth Co. is a part of Economic Development Region 9, which is located in the 
+Southwest Planning Region.Blue Earth Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+-449
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program1,442
+81,091Blue Earth Co. is the 13th largest of the 87 counties in the state. Its population increased so far this decade, ranking as the 25th fastest 
+growing in the state from 2020 to 2024. Blue Earth Co.'s population has a younger median age than the state and a smaller percentage of 
+people aged 65 years and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see 
+Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+3,122
+6,537
+14,664
+6,956
+7,376
+6,604
+3,900
+3,100
+2,550
+1,1323,668
+8,002
+17,428
+9,172
+8,172
+6,635
+7,217
+6,024
+2,990
+1,392Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+8%
+35%
+39%0%
+15% 3%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+69,386 100.0% 7.6% 100.0% 6.8%
+60,199 86.8% 0.8% 78.4% -2.2%
+3,177 4.6% 62.8% 6.8% 38.9%
+144 0.2% -24.2% 0.9% -11.6%
+ 1,636 2.4% 31.8% 5.1% 29.6%
+1,018 1.5% 317.2% 2.7% 96.1%
+3,212 4.6% 181.8% 6.2% 168.3%
+3,252 4.7% 89.4% 6.2% 37.5%
+Blue Earth Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change72,082      77,777            
+Under 5 years 3,709              3,934                225 6.1%
+5-14 years 7,562              7,665                103 1.4%
+15-24 years 18,552            19,930              1,378 7.4%
+25-34 years 8,879              9,962                1,083 12.2%
+35-44 years 8,224              7,927                -297 -3.6%
+45-54 years 6,952              8,425                1,473 21.2%
+55-64 years 6,729              6,963                234 3.5%
+65-74 years 6,356              5,966                -390 -6.1%
+75-84 years 3,580              4,983                1,403 39.2%
+85 years & over 1,539              2,022                483 31.4%
+Total Population 72,082          77,777            5,695 7.9%
+69.8%
+68.8%
+12.4%
+19.8%
+8.5%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Blue Earth Co. has a higher percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a higher 
+percentage of people with at least some college experience. Blue Earth Co. also has a higher percentage of people with an Associate's degree 
+and a lower percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:95.0%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Blue Earth Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Blue Earth Co.'s population is expected to grow from 2025 to 2035, with a rate of 
+change that is faster than the projected statewide growth rate (3.7%). In addition to the overall growth, the number of people aged 65 years 
+and older is expected to increase over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSBlue Earth Co.'s population was becoming more racially diverse over time. Since 2013, the white population increased and the number of 
+people of other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Blue Earth Co. Minnesota
+5%
+25%
+29%12%20%8%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree86.8%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 10,000 20,000 30,000 40,000 50,000 60,000 70,000 80,000 90,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+40,469 available workers
+2,650 workers
+7.0% increase
+2.4% unemployment rate
+2.8% state
+971 unemployed workers
+Blue Earth Co.
+Average of 407 Average of 418 Average of 171
+new workers per year new workers per year new workers per year
+2025 2035
+16 to 24 years 12,694 13,811
+25 to 54 years 21,232 23,204
+55 to 64 years 5,022 5,196
+65 years & over 2,058 2,081
+Total Labor Force 41,006 44,293Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Blue Earth Co. averaged 
+an annual gain of new workers from 2000 to 2010, and most recently a gain of new workers since 2010 (see Figure 7). Moving forward, Blue 
+Earth Co. is expected to add workers from 2025 to 2035 (see Table 6).COUNTY PROFILE Blue Earth Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 2.4%, Blue Earth Co. had a lower unemployment rate 
+than the state in 2024. After the pandemic recession Blue 
+Earth Co.'s unemployment rate declined compared to the 
+2.9% pre-pandemic rate posted in 2019. The number of 
+unemployed workers actively seeking work in Blue Earth 
+Co. increased over the past year, and is down compared to 
+2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Southwest returned to pre-pandemic levels, 
+but employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-1,134639879
+262
+-1,500-1,000-50005001,0001,5001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,80237,81939,823
+38,68940,469
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+36,00036,50037,00037,50038,00038,50039,00039,50040,00040,50041,0002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Blue Earth Co.
+1.2
+1.11.3
+0.8
+0.60.71.5
+0.40.30.60.6
+0.00.51.01.52.0
+ - 5,000 10,000 15,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Southwest Minnesota Vacancies
+Southwest Minnesota Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+39,790 69.7% 4.2% 68.5% 3.9% 20,800 18,977
+3,426 59.8% 10.3% 52.7% 9.9% 1,410 2,014
+8,403 79.8% 4.2% 83.4% 6.5% 4,168 4,240
+15,153 89.0% 4.4% 88.7% 3.5% 8,296 6,854
+5,626 86.4% 2.5% 87.8% 2.9% 2,926 2,698
+5,286 74.6% 2.3% 72.8% 3.0% 2,775 2,512
+1,590 26.9% 1.6% 27.8% 3.4% 1,013 578
+292 6.8% 3.1% 6.6% 3.1% 212 81
+34,946 69.4% 4.0% 67.5% 3.4% White alone 87.8%
+1,594 70.4% 5.0% 71.0% 8.4% Black or African American 4.0%
+67 72.0% 0.0% 57.7% 11.4% American Indian & Alaska Native 0.2%
+989 66.7% 11.8% 74.6% 3.5% Asian or Other Pac. Islanders 2.5%
+748 86.6% 1.2% 75.9% 5.6% Some Other Race 1.9%
+1,435 70.7% 5.4% 74.2% 6.1% Two or More Races 3.6%
+1,917 79.5% 7.5% 77.1% 5.9%
+1,985 54.4% 12.6% 55.3% 9.5%
+26,055 85.1% 3.6% 84.4% 3.3%
+973 64.2% 2.8% 67.1% 4.7%
+5,267 77.7% 2.5% 76.5% 2.6%
+9,939 86.8% 4.7% 85.0% 3.6%
+9,873 90.8% 2.4% 90.5% 2.0%
+Number Percent Number Percent
+36,857 99.7% 2,870,678 97.8%
+28,576 77.3% 1,984,232 67.6%
+8,281 22.4% 886,447 30.2%
+111 0.3% 64,576 2.2%
+31,719 85.8% 2,286,563 77.9%
+665 1.8% 61,640 2.1%
+1,479 4.0% 120,345 4.1%
+3,068 8.3% 463,770 15.8%
+8,798 23.8% 478,446 16.3%
+17,745 48.0% 924,605 31.5%
+5,360 14.5% 651,626 22.2%
+2,847 7.7% 551,828 18.8%
+887 2.4% 176,115 6.0%
+1,331 3.6% 149,698 5.1%
+17.1 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanBlue Earth Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKBlue Earth Co. had a higher labor force participation rate than the state. The labor force in Blue Earth Co. is less racially diverse than the state 
+(where 80.0% of workers are white alone), but is becoming more diverse over time.
+A larger percentage of workers in Blue Earth Co. worked in the same county in which they live compared to the state. Blue Earth Co. also had 
+a shorter average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesBlue Earth Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Blue Earth Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+4.7%
+8.3%
+15.3%
+33.9%
+12.9%
+25.0%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Blue Earth Co. Minnesota87.8%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$72,623
+state $87,556
+$95,459
+state $111,492
+$36,299
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Blue Earth Co. $31,244 $15.02 $0 $412 $150 $928 $498 $310 $306
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Blue Earth Co. $57,124 $18.31 $353 $937 $530 $1,133 $841 $479 $487
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+16,787 100.0% 100.0%
+1,019 6.1% 4.0%
+557 3.3% 4.0%
+1,576 9.4% 6.2%
+2,377 14.2% 8.9%
+5,374 32.0% 25.7%
+4,236 25.2% 33.6%
+1,648 9.8% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$252,800
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent23.5%
+47.0%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$1,609COUNTY PROFILE Blue Earth Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Blue Earth Co.Median Household Income
+Median Family Income
+$1,076The cost of living has increased over the past 2 years with costs up in many areas. Blue Earth Co. had a lower cost of living than the state, with 
+a required hourly wage of $15.02 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of 
+$18.31 for a typical family with 2 adults and 1 child (see Table 9).
+Blue Earth Co. had a lower median house value than the state, having the 26th highest value of the 87 counties in 2022. Blue Earth Co.'s 
+housing stock was newer than the state's, with a higher percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeBlue Earth Co. had a lower median household income than the state, and a higher percentage of households with incomes below $50,000. 
+Overall, Blue Earth Co. had the 37th highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs15.8%
+11.7%18.6%
+15.4%16.8%
+15.7%15.1%
+13.5%17.9%
+19.7%15.8%
+24.0%Blue Earth Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+13.2%
+14.9%
+18.6%
+20.4%
+12.7%
+20.1%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 10% 20% 30%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Blue Earth Co. Minnesota
+27.4%
+13.3%
+12.3%6.5%40.5%
+49.9%
+18.3%8.4%6.4%17.1%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$23.50     102,130 100.0% 1.0 $26.22      2,920,470 100.0%
+$48.78          5,790 5.7% 0.8 $59.38 200,060 6.9%
+$35.84          4,270 4.2% 0.6 $39.95 208,210 7.1%
+$38.02          1,150 1.1% 0.3 $50.02 97,460 3.3%
+$38.56          1,790 1.8% 0.9 $45.03 57,950 2.0%
+$33.52             860 0.8% 0.8 $38.33 32,150 1.1%
+$29.90          2,240 2.2% 1.1 $29.82 59,290 2.0%
+$36.69             390 0.4% 0.5 $49.52 20,750 0.7%
+$28.30          6,550 6.4% 1.1 $27.84 170,270 5.8%
+$23.18          1,060 1.0% 0.8 $28.84 36,030 1.2%
+$41.33          5,960 5.8% 0.9 $46.51 187,480 6.4%
+$18.67          6,720 6.6% 1.1 $18.67 176,750 6.1%
+$29.66          1,340 1.3% 0.8 $29.37 46,960 1.6%
+$15.01          9,860 9.7% 1.2 $16.05 240,830 8.2%
+$18.53          2,970 2.9% 1.0 $19.16 81,700 2.8%
+$16.90          2,240 2.2% 1.0 $17.54 63,300 2.2%
+$17.32          8,810 8.6% 1.0 $18.66 244,780 8.4%
+$23.22       11,360 11.1% 1.0 $24.07 340,040 11.6%
+$23.44             260 0.3% 2.3 $23.48 3,300 0.1%
+$30.81          4,190 4.1% 1.1 $34.20 114,050 3.9%
+$29.17          4,650 4.6% 1.3 $30.40 105,650 3.6%
+$23.49       10,360 10.1% 1.4 $23.56 205,220 7.0%
+$22.63          9,340 9.1% 1.2 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+9,168 $19.48
+176 $37.03
+189 $27.48
+40 $36.13
+115 $27.92
+88 $38.63
+409 $24.68
+548 $21.55
+738 $30.27
+984 $14.95
+222 $28.05
+1,188 $15.62
+395 $15.71
+114 $15.42
+1,026 $15.96
+388 $20.28
+132 $23.65
+645 $23.30
+457 $18.67
+1,033 $21.37 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $23.5 in 2024, wages were lower in Region 9 than the state. Overall, Region 9 had the 6th highest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($48.78) and lowest for food preparation and 
+serving related jobs ($15.01) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Blue Earth Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 9 State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Southwest Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairBlue Earth Co. is a part of the Southwest planning region. There were 9168 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryAgriculture, 
+Forestry, 
+Fishing & 
+Hunting 
+1%Construction 
+2%
+Manufacturing 
+7%Utilities 
+0%
+Wholesale Trade 
+5%
+Retail Trade 
+17%Transportatio
+n and 
+Warehousing 
+4%
+Information 
+0%Finance 
+and 
+Insurance 
+1%
+Real Estate and 
+Rental and 
+Leasing 
+0%Professional 
+and Technical 
+Services 
+1%Management 
+of Companies 
+and 
+Enterprises Administrative 
+and Waste 
+Services 
+3%Educational 
+Services 
+9%Health Care 
+and Social 
+Assistance 
+24%Arts, 
+Entertainment, 
+and Recreation 
+1%Accommodatio
+n and Food 
+Services 
+11%Other Services, 
+Ex. Public Admin 
+5%Public 
+Administration 
+6%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Retail Salespersons
+$34,798/yr
+Home Health and Personal 
+Care Aides
+$36,495/yr
+Fast Food and Counter 
+Workers
+$30,228/yr
+Cashiers
+$30,595/yr
+Teaching Assistants, Except 
+Postsecondary
+$38,031/yr
+First-Line Supervisors of 
+Retail Sales Workers
+$45,427/yr
+Janitors and Cleaners, 
+Except Maids and 
+$37,379/yr
+Construction Laborers
+$49,744/yr
+Bus Drivers, School
+$49,228/yr
+Laborers and Freight, Stock, 
+and Material Movers, Hand
+$43,003/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+202,214           207,878      2.8% 5,664
+5,523                5,777         4.6% 254
+690                   690            0.0% 0
+7,679                8,252         7.5% 573
+32,192              33,537      4.2% 1,345
+8,001                8,116         1.4% 115
+19,409              19,084      -1.7% -325
+6,297                6,810         8.1% 513
+2,093                2,046         -2.2% -47
+8,227                8,375         1.8% 148
+5,544                5,985         8.0% 441
+4,127                4,331         4.9% 204
+16,065              16,116      0.3% 51
+28,786              30,498      5.9% 1,712
+13,625              14,377      5.5% 752
+7,097                7,281         2.6% 184
+14,117              14,370      1.8% 253
+Source: DEED 2022-2032 Employment OutlookLicensed Practical and Licensed Vocational 
+Nurses
+Bus and Truck Mechanics and Diesel 
+Engine Specialists
+Plumbers, Pipefitters, and Steamfitters
+$60,689/yrHeavy and Tractor-Trailer Truck Drivers Registered Nurses Accountants and Auditors
+$54,491/yr $85,138/yr $69,245/yrCOUNTY PROFILE Blue Earth Co.
+OCCUPATIONS IN DEMAND
+Table 13. Southwest Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Nursing AssistantsPolice and Sheriff's Patrol 
+OfficersGeneral and Operations Managers
+$39,764/yr $74,684/yr $82,482/yr
+Dental HygienistsElementary School Teachers, 
+Except Special Education
+$58,499/yr $84,870/yr $65,364/yr
+Industrial Engineers
+$61,794/yr $49,828/yr $90,455/yr
+$71,227/yr $96,291/yr
+Automotive Service Technicians and 
+MechanicsPhysical Therapist AssistantsMiddle School Teachers, Except 
+Special and Career/Technical Heating, Air Conditioning, and 
+Refrigeration Mechanics and InstallersIndustrial Engineering 
+Technologists and TechniciansSecondary School Teachers, Except 
+Special and Career/Technical 
+$64,265/yr $60,049/yr $66,349/yr
+Radiologic Technologists and 
+TechniciansSubstitute Teachers, Short-Term
+$59,444/yr $78,236/yr $52,112/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Southwest Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityBlue Earth Co. is a part of the Southwest planning region, which is projected to see a 2.8% increase in employment levels over the next 
+decade. In addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$49,947/yr
+$66,534/yrSubstance abuse, behavioral disorder, and 
+mental health counselorsCivil Engineering Technologists 
+and TechniciansComputer Systems Analysts
+Industrial Machinery MechanicsVeterinary Technologists and 
+TechniciansPreschool Teachers, Except Special 
+Education
+$40,453/yr $37,747/yr
+Source: DEED Occupations in DemandBookkeeping, Accounting, and Auditing 
+ClerksAgricultural Technicians Financial Managers
+$47,963/yr $50,274/yr $119,560/yr
+Human Resources Assistants, 
+Except Payroll and Timekeeping
+$50,024/yr $62,988/yr
+579
+304
+154
+243
+96
+334
+33
+292
+47
+638
+807
+60
+451
+219
+296
+-419
+-1,115
+84
+529
+592
+438
+1,0025,196
+2,685
+479
+852
+365
+1,841
+224
+5,689
+1,841
+3,403
+8,057
+1,233
+12,217
+4,473
+3,602
+10,465
+11,316
+1,771
+3,584
+3,584
+9,377
+10,018-5,000 0 5,000 10,000 15,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction and…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and Extraction…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+2,143 business establishments annual average wage
+41,230 jobs total industry payroll
+3,927 jobs  
+10.5% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+41,230 100.0% $57,012 Total, All Industries 2.4%
+400 1.0% $23,004 Agriculture, Forestry, Fish & Hunt -5.2%
+84 0.2% $42,121 Mining -6.7%
+1,947 4.7% $78,276 Construction 1.1%
+4,348 10.5% $75,937 Manufacturing -0.2%
+183 0.4% $116,049 Utilities -0.5%
+1,059 2.6% $76,763 Wholesale Trade -5.3%
+5,599 13.6% $34,146 Retail Trade 1.4%
+1,629 4.0% $55,836 Transportation & Warehousing 0.2%
+542 1.3% $71,327 Information -0.4%
+1,247 3.0% $93,361 Finance & Insurance 3.5%
+874 2.1% $42,428 Real Estate & Rental & Leasing 3.8%
+1,211 2.9% $92,349 Professional & Technical Services 0.2%
+134 0.3% $116,086 Management of Companies -10.1%
+964 2.3% $42,752 Admin. Support & Waste Mgmt. Svcs. -7.1%
+3,776 9.2% $62,482 Educational Services 0.6%
+9,625 23.3% $61,820 Health Care & Social Assistance 7.0%
+538 1.3% $18,916 Arts, Entertainment, & Recreation 3.1%
+4,081 9.9% $21,180 Accommodation & Food Services 1.7%
+1,546 3.7% $40,937 Other Services 8.0%
+1,442 3.5% $72,918 Public Administration 6.1%
+For more information on Blue Earth Co.'s population, labor force, and economic trends, contact:
+Amanda Blaschko Regional Analyst, Southeast & South Central
+CareerForce Rochester  |  2070 College View Rd. E  |  Rochester MN 55904
+Office: 320-441-6571 E-mail: amanda.blaschko@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Blue Earth Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Blue Earth Co. had the 11th largest economy of the 87 counties 
+in the state. Blue Earth Co. was the 18th fastest growing in the past year and the 16th fastest growing since 2019. From 2019 to 2024, 
+employment in Blue Earth Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Blue Earth Co. Industry 
+Employment Statistics, 2024Job change,                    
+2019-2024$57,012
+$2,350,618,340
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration2.4%
+-5.2%
+-6.7%
+1.1%
+-0.2%
+-0.5%
+-5.3%
+1.4%
+0.2%
+-0.4%
+3.5%
+3.8%
+0.2%
+-10.1%
+-7.1%
+0.6%
+7.0%
+3.1%
+1.7%
+8.0%
+6.1%-15.0% -10.0% -5.0% 0.0% 5.0% 10.0%Figure 17. Change in Jobs, 2023 -202435,43836,94536,19240,275
+37,30337,72140,28041,230
+2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+32,00034,00036,00038,00040,00042,000
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Blue Earth Co. Minnesota
+
+Provide your analysis as JSON following the required schema. Use ONLY the allowed fields from the fact sheet (economy, market, insurance, weather flags, NASS progress). Ignore any agronomic variables already modeled by ML.
+
+Return ONLY the JSON object, no other text.
+
+================================================================================
+FACT SHEET CONTENT (from PDF)
+================================================================================
+
+2024 population: 70,700 people
+1,588 people 31.5 years
+2.3% increase state: 38.6 years
+Number Percent
+Under 5 years 3,668 5.2%
+5-14 years 8,002 11.3%
+15-24 years 17,428 24.7%
+25-34 years 9,172 13.0%
+35-44 years 8,172 11.6%
+45-54 years 6,635 9.4%
+55-64 years 7,217 10.2%
+65-74 years 6,024 8.5%
+75-84 years 2,990 4.2%
+85 years & over 1,392 2.0%
+Total Population 70,700 100.0%
+Births Deaths Total
+Blue Earth Co. 1,597 581 2,908 2,327 993
+State of Minnesota 86,459 51,570 268,689 217,119 33,161
+Number Percent Number Percent Percent Change
+Foreign-born Population 4,049 5.8% 1,522 60.2% 8.6% 24.7%
+Europe 339 8.4% 5 1.5% 8.8% -3.4%
+Asia 1,407 34.7% 249 21.5% 35.7% 18.1%
+Africa 1,563 38.6% 834 114.4% 28.3% 78.8%
+Oceania 3 0.1% -21 -87.5% 0.4% 5.4%
+Americas: 737 18.2% 455 161.3% 26.7% 8.7%
+Latin America 608 15.0% 361 146.2% 24.2% 9.7%
+Northern America 129 3.2% 94 268.6% 2.5% 0.4%Blue Earth Co. enjoyed a natural increase - more births than deaths from 2020 to 2024, but also experienced net in-migration - meaning more 
+people moved in than moved out. Despite suffering domestic out-migration, Blue Earth Co. welcomed net international in-migration - gaining 
+new Minnesotans from foreign countries (see Table 2).
+Total 
+Population 
+ChangeNatural 
+IncreaseVital Events
+International
+Compared to the state, Blue Earth Co. has a smaller percentage of foreign-born residents. From 2013 to 2023, Blue Earth Co. saw an increase 
+in the number of foreign-born residents, which was faster than the statewide increase.
+Table 3. Place of Birth for 
+the Foreign Born 
+Population, 2023Blue Earth Co. Change 2013-2023 Minnesota
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCOUNTY PROFILE
+Median Age:Blue Earth Co. is a part of Economic Development Region 9, which is located in the 
+Southwest Planning Region.Blue Earth Co.
+POPULATION CHARACTERISTICS
+Net MigrationApril 1, 2020 to July 1, 2024Table 2. Cumulative Estimates of the Components of Population Change, 2020-2024
+Domestic
+-449
+-47,930
+Source: U.S. Census Bureau, Population Estimates Program1,442
+81,091Blue Earth Co. is the 13th largest of the 87 counties in the state. Its population increased so far this decade, ranking as the 25th fastest 
+growing in the state from 2020 to 2024. Blue Earth Co.'s population has a younger median age than the state and a smaller percentage of 
+people aged 65 years and older. The population is aging, especially as the Baby Boom generation moves through the population pyramid (see 
+Figure 1).
+Table 1. Population by Age Group, 2024
+Source: Census 2024 Population Estimates, 2019-2023 ACSPopulation change,                    
+2020-2024
+3,122
+6,537
+14,664
+6,956
+7,376
+6,604
+3,900
+3,100
+2,550
+1,1323,668
+8,002
+17,428
+9,172
+8,172
+6,635
+7,217
+6,024
+2,990
+1,392Under 5 years
+5-14 years
+15-24 years
+25-34 years
+35-44 years
+45-54 years
+55-64 years
+65-74 years
+75-84 years
+85 years & overFigure 1. Population Pyramid, 2000 -2024
+2000 Population 2024 Estimate
+8%
+35%
+39%0%
+15% 3%Figure 2. Place of Birth for 
+the Foreign Born Population, 
+2023
+Europe
+Asia
+Africa
+Oceania
+Latin America
+Northern America
+Number PercentChange                  
+from              
+2013-2023PercentChange                  
+from              
+2013-2023
+69,386 100.0% 7.6% 100.0% 6.8%
+60,199 86.8% 0.8% 78.4% -2.2%
+3,177 4.6% 62.8% 6.8% 38.9%
+144 0.2% -24.2% 0.9% -11.6%
+ 1,636 2.4% 31.8% 5.1% 29.6%
+1,018 1.5% 317.2% 2.7% 96.1%
+3,212 4.6% 181.8% 6.2% 168.3%
+3,252 4.7% 89.4% 6.2% 37.5%
+Blue Earth Co.2025 
+Projection2035 
+ProjectionNumeric 
+ChangePercent 
+Change72,082      77,777            
+Under 5 years 3,709              3,934                225 6.1%
+5-14 years 7,562              7,665                103 1.4%
+15-24 years 18,552            19,930              1,378 7.4%
+25-34 years 8,879              9,962                1,083 12.2%
+35-44 years 8,224              7,927                -297 -3.6%
+45-54 years 6,952              8,425                1,473 21.2%
+55-64 years 6,729              6,963                234 3.5%
+65-74 years 6,356              5,966                -390 -6.1%
+75-84 years 3,580              4,983                1,403 39.2%
+85 years & over 1,539              2,022                483 31.4%
+Total Population 72,082          77,777            5,695 7.9%
+69.8%
+68.8%
+12.4%
+19.8%
+8.5%Hispanic or Latino origin
+Source: U.S. Census Bureau, 2019-2023 American Community Survey  Some Other Race  White
+  Black or African American
+  American Indian or Alaska Native
+  Asian or Other Pac. Islanders
+Blue Earth Co. has a higher percentage of adults (18 years & over) with at least a high school diploma than the state (93.2%), and a higher 
+percentage of people with at least some college experience. Blue Earth Co. also has a higher percentage of people with an Associate's degree 
+and a lower percentage of people with a Bachelor's degree or higher.
+state:
+Advanced Degree:Associate's Degree:
+Bachelor's Degree:Total
+Table 5. Population Projections by Age Group, 2025-2035
+EDUCATIONAL ATTAINMENT
+Percentage of the adult population 
+(18 years & over) with at least a high 
+school diploma:95.0%
+Source: U.S. Census Bureau, 2019-2023 American Community SurveyCollege-educated:Source: Minnesota State Demographic CenterCOUNTY PROFILE Blue Earth Co.
+  Two or More Races
+According to the Minnesota State Demographic Center, Blue Earth Co.'s population is expected to grow from 2025 to 2035, with a rate of 
+change that is faster than the projected statewide growth rate (3.7%). In addition to the overall growth, the number of people aged 65 years 
+and older is expected to increase over the next decade (see Figure 4 and Table 5).POPULATION PROJECTIONSBlue Earth Co.'s population was becoming more racially diverse over time. Since 2013, the white population increased and the number of 
+people of other races increased (see Table 4).
+Table 4. Race and Hispanic Origin, 
+2023Blue Earth Co. Minnesota
+5%
+25%
+29%12%20%8%Figure 5. Educational Attainment, 2023
+Less than high school
+High school graduate (incl. equiv.)
+Some college, no degree
+Associate's degree
+Bachelor's degree
+Advanced degree86.8%Figure 3. Population by Race, 
+2023
+White
+Black or African American
+American Indian
+Asian
+Some Other Race
+Two or More Races
+ - 10,000 20,000 30,000 40,000 50,000 60,000 70,000 80,000 90,000
+2025 Projection 2035 ProjectionFigure 4. Projections by Age Group, 2025 -
+2035
+85 years & over
+75-84 years
+65-74 years
+55-64 years
+45-54 years
+35-44 years
+25-34 years
+15-24 years
+5-14 years
+Under 5 years
+40,469 available workers
+2,650 workers
+7.0% increase
+2.4% unemployment rate
+2.8% state
+971 unemployed workers
+Blue Earth Co.
+Average of 407 Average of 418 Average of 171
+new workers per year new workers per year new workers per year
+2025 2035
+16 to 24 years 12,694 13,811
+25 to 54 years 21,232 23,204
+55 to 64 years 5,022 5,196
+65 years & over 2,058 2,081
+Total Labor Force 41,006 44,293Labor force growth has slowed in recent years. After experiencing a net gain of workers each year from 1990 to 2000, Blue Earth Co. averaged 
+an annual gain of new workers from 2000 to 2010, and most recently a gain of new workers since 2010 (see Figure 7). Moving forward, Blue 
+Earth Co. is expected to add workers from 2025 to 2035 (see Table 6).COUNTY PROFILE Blue Earth Co.
+Source: Minnesota State Demographic Center, 2019-2023 ACSLabor Force change,                    
+2009-2024LABOR FORCE TRENDS
+At 2.4%, Blue Earth Co. had a lower unemployment rate 
+than the state in 2024. After the pandemic recession Blue 
+Earth Co.'s unemployment rate declined compared to the 
+2.9% pre-pandemic rate posted in 2019. The number of 
+unemployed workers actively seeking work in Blue Earth 
+Co. increased over the past year, and is down compared to 
+2019.
+Source: DEED Local Area Unemployment Statistics
+Table 6. Labor Force 
+Projections, 2025-2035Labor Force Projection
+The labor market had grown extremely tight in recent 
+years, with less than 1 jobseeker per vacancy until the 
+pandemic recession intervened in early 2020 and the 
+number of unemployed workers spiked. In 2024, job 
+vacancies in Southwest returned to pre-pandemic levels, 
+but employers are still seeing challenges finding enough 
+workers for open jobs (see Figure 8).-1,134639879
+262
+-1,500-1,000-50005001,0001,5001990-19911991-19921992-19931993-19941994-19951995-19961996-19971997-19981998-19991999-20002000-20012001-20022002-20032003-20042004-20052005-20062006-20072007-20082008-20092009-20102010-20112011-20122012-20132013-20142014-20152015-20162016-20172017-20182018-20192019-20202020-20212021-20222022-20232023-2024Year -Over -Year Change in Available Workers
+Source: DEED Local Area Unemployment Statistics (LAUS)Figure 7. Annual Change in Labor Force, 1990 -20242,941,9763,117,6633,129,80237,81939,823
+38,68940,469
+2,800,0002,850,0002,900,0002,950,0003,000,0003,050,0003,100,0003,150,000
+36,00036,50037,00037,50038,00038,50039,00039,50040,00040,50041,0002009201020112012201320142015201620172018201920202021202220232024Minnesota Labor ForceLocal Labor ForceFigure 6. Annual Labor Force Estimates
+Minnesota Blue Earth Co.
+1.2
+1.11.3
+0.8
+0.60.71.5
+0.40.30.60.6
+0.00.51.01.52.0
+ - 5,000 10,000 15,000
+2014
+2015
+2016
+2017
+2018
+2019
+2020
+2021
+2022
+2023
+2024Jobseekers Per VacancyNumber of Unemployed & Vacancies
+Source: DEED Job Vacancy Survey, LAUS programFigure 8. Jobseekers Per Vacancy, 
+2014 -2024Southwest Minnesota Vacancies
+Southwest Minnesota Unemployed
+Jobseekers per Vacancy
+In Labor Force 
+(available 
+workers)Labor 
+Force 
+Partic. 
+RateUnemp. 
+Rate Labor 
+Force 
+Partic. 
+Rate Unemp. 
+Rate
+Male Female
+39,790 69.7% 4.2% 68.5% 3.9% 20,800 18,977
+3,426 59.8% 10.3% 52.7% 9.9% 1,410 2,014
+8,403 79.8% 4.2% 83.4% 6.5% 4,168 4,240
+15,153 89.0% 4.4% 88.7% 3.5% 8,296 6,854
+5,626 86.4% 2.5% 87.8% 2.9% 2,926 2,698
+5,286 74.6% 2.3% 72.8% 3.0% 2,775 2,512
+1,590 26.9% 1.6% 27.8% 3.4% 1,013 578
+292 6.8% 3.1% 6.6% 3.1% 212 81
+34,946 69.4% 4.0% 67.5% 3.4% White alone 87.8%
+1,594 70.4% 5.0% 71.0% 8.4% Black or African American 4.0%
+67 72.0% 0.0% 57.7% 11.4% American Indian & Alaska Native 0.2%
+989 66.7% 11.8% 74.6% 3.5% Asian or Other Pac. Islanders 2.5%
+748 86.6% 1.2% 75.9% 5.6% Some Other Race 1.9%
+1,435 70.7% 5.4% 74.2% 6.1% Two or More Races 3.6%
+1,917 79.5% 7.5% 77.1% 5.9%
+1,985 54.4% 12.6% 55.3% 9.5%
+26,055 85.1% 3.6% 84.4% 3.3%
+973 64.2% 2.8% 67.1% 4.7%
+5,267 77.7% 2.5% 76.5% 2.6%
+9,939 86.8% 4.7% 85.0% 3.6%
+9,873 90.8% 2.4% 90.5% 2.0%
+Number Percent Number Percent
+36,857 99.7% 2,870,678 97.8%
+28,576 77.3% 1,984,232 67.6%
+8,281 22.4% 886,447 30.2%
+111 0.3% 64,576 2.2%
+31,719 85.8% 2,286,563 77.9%
+665 1.8% 61,640 2.1%
+1,479 4.0% 120,345 4.1%
+3,068 8.3% 463,770 15.8%
+8,798 23.8% 478,446 16.3%
+17,745 48.0% 924,605 31.5%
+5,360 14.5% 651,626 22.2%
+2,847 7.7% 551,828 18.8%
+887 2.4% 176,115 6.0%
+1,331 3.6% 149,698 5.1%
+17.1 minutes 23.1 minutes  45 to 54 years
+Worked in state of residence
+Car, truck, or vanBlue Earth Co.
+LABOR FORCE CHARACTERISTICSCOUNTY PROFILE
+Table 7. Employment Characteristics, 2023
+Labor Force by Gender
+  H.S. Diploma or Equivalent
+  Some College or Assoc. Degree
+  Bachelor's Degree or Higher
+MEANS OF TRANSPORTATION TO WORK
+TRAVEL TIME TO WORKBlue Earth Co. had a higher labor force participation rate than the state. The labor force in Blue Earth Co. is less racially diverse than the state 
+(where 80.0% of workers are white alone), but is becoming more diverse over time.
+A larger percentage of workers in Blue Earth Co. worked in the same county in which they live compared to the state. Blue Earth Co. also had 
+a shorter average commute time than the state.
+45 to 59 minutes
+60 or more minutes
+Source: 2019-2023 American Community Survey, 5-Year EstimatesMean travel time to work (minutes)Less than 10 minutes
+10 to 19 minutes
+20 to 29 minutes
+30 to 44 minutesWorked in county of residence
+Worked out of county of residence
+Worked outside state of residence
+Worked at homeSome Other Race
+Two or More Races
+Hispanic or Latino
+Public transportation (excl. taxicab)
+Other method (walk, bike, taxi, etc.)Source: 2019-2023 American Community Survey, 5-Year EstimatesBlue Earth Co. Minnesota
+  55 to 64 years
+  65 to 74 years
+  75 years & over
+Employment Characteristics by Race & Hispanic OriginTotal Labor Force
+  16 to 19 years
+  20 to 24 years
+  25 to 44 years
+Table 8. Commuting Characteristics, 2022Blue Earth Co. MinnesotaPopulation, 25 to 64 years
+  Less than H.S. DiplomaWhite alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Employment Characteristics by Disability, 20 to 64 years
+With Any Disability, 20 to 64 years
+Employment Characteristics by Educational Attainment, 25 to 64 years
+4.7%
+8.3%
+15.3%
+33.9%
+12.9%
+25.0%4.9%
+9.1%
+18.9%
+28.8%
+14.8%
+23.5%0% 20% 40%
+12:00 a.m. to
+4:59 a.m.
+5:00 a.m. to 5:59
+a.m.
+6:00 a.m. to 6:59
+a.m.
+7:00 a.m. to 7:59
+a.m.
+8:00 a.m. to 8:59
+a.m.
+9:00 a.m. to
+11:59 p.m.Figure 10. Time Leaving Home to 
+go to Work, 2023
+Blue Earth Co. Minnesota87.8%Figure 9. Labor Force by 
+Race, 2023
+White alone
+Black or African American
+American Indian & Alaska Native
+Asian or Other Pac. Islanders
+Some Other Race
+Two or More Races
+$72,623
+state $87,556
+$95,459
+state $111,492
+$36,299
+state $46,957
+Table 9. Basic Needs Cost of Living Estimates, 2024
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Blue Earth Co. $31,244 $15.02 $0 $412 $150 $928 $498 $310 $306
+State of Minnesota $36,768 $17.68 $0 $424 $156 $1,154 $573 $365 $392
+Child Care FoodHealth 
+CareHousingTrans-
+portationOther Taxes
+Blue Earth Co. $57,124 $18.31 $353 $937 $530 $1,133 $841 $479 $487
+State of Minnesota $70,308 $22.53 $545 $964 $556 $1,446 $1,028 $557 $763
+Minnesota
+Total Percent Percent
+16,787 100.0% 100.0%
+1,019 6.1% 4.0%
+557 3.3% 4.0%
+1,576 9.4% 6.2%
+2,377 14.2% 8.9%
+5,374 32.0% 25.7%
+4,236 25.2% 33.6%
+1,648 9.8% 17.5%
+$305,500
+state $1,890
+state 22.5%
+state $1,235
+state 47.2%$252,800
+Percentage of households with a mortgage spending 30% or more of their 
+income on housing costs 
+Percentage of renters spending 30% or more                                                            
+of their household income on rent23.5%
+47.0%
+Source: 2019-2023 American Community Survey, 5-Year Estimates$1,609COUNTY PROFILE Blue Earth Co.
+INCOMES, COST OF LIVING, & HOUSING
+Table 10. Estimated Value of Owner-
+occupied Housing Units, 2022Blue Earth Co.Median Household Income
+Median Family Income
+$1,076The cost of living has increased over the past 2 years with costs up in many areas. Blue Earth Co. had a lower cost of living than the state, with 
+a required hourly wage of $15.02 for a single person living alone to meet a basic needs cost of living, and an hourly wage requirement of 
+$18.31 for a typical family with 2 adults and 1 child (see Table 9).
+Blue Earth Co. had a lower median house value than the state, having the 26th highest value of the 87 counties in 2022. Blue Earth Co.'s 
+housing stock was newer than the state's, with a higher percentage of units built since 2000 (see Figure 12).
+Median monthly owner costs, owner-occupied units 
+with a mortgagePer Capita IncomeBlue Earth Co. had a lower median household income than the state, and a higher percentage of households with incomes below $50,000. 
+Overall, Blue Earth Co. had the 37th highest median household income of the 87 counties in the state.
+Source: 2019-2023 American Community Survey
+Median (dollars)
+Source: 2019-2023 American Community Survey, 5-Year EstimatesTypical Family: 2 Adults (1 
+working full-time, 1 part-
+time), 1 childFamily Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly CostsSingle Adult, 0 childrenSingle Yearly 
+Cost of LivingHourly Wage 
+RequiredMonthly Costs
+Source: DEED Cost of Living tool
+Total
+Less than $50,000
+$50,000 to $99,999
+$100,000 to $149,999
+$150,000 to $199,999
+$200,000 to $299,999
+$300,000 to $499,999
+$500,000 or more
+Median monthly rent costs15.8%
+11.7%18.6%
+15.4%16.8%
+15.7%15.1%
+13.5%17.9%
+19.7%15.8%
+24.0%Blue Earth Co.
+Minnesota
+Source: 2019 -2023 American Community Survey 5 -Year EstimatesFigure 11. Household Incomes, 2023
+Less than $25,000 $25,000-$49,999 $50,000-$74,999
+$75,000-$99,999 $100,00-$149,999 $150,000 or more
+13.2%
+14.9%
+18.6%
+20.4%
+12.7%
+20.1%9.1%
+13.3%
+25.0%
+23.5%
+13.5%
+15.6%0% 10% 20% 30%
+2010 or later
+2000 to 2009
+1980 to 1999
+1960 to 1979
+1940 to 1959
+1939 or earlierFigure 12. Year Structure Built, 2023
+Blue Earth Co. Minnesota
+27.4%
+13.3%
+12.3%6.5%40.5%
+49.9%
+18.3%8.4%6.4%17.1%Figure 13. Housing Costs as a 
+Percentage of Income, 2023
+Less than 20% 20% to 24.9%
+25.0% to 29.9% 30.0% to 34.9%
+35% or moremortgage
+rent
+Median 
+Hourly 
+WageEstimated 
+Regional 
+JobsShare of 
+Total JobsRegional 
+Location 
+QuotientMedian 
+Hourly WageEstimated 
+Statewide 
+JobsShare of 
+Total Jobs
+$23.50     102,130 100.0% 1.0 $26.22      2,920,470 100.0%
+$48.78          5,790 5.7% 0.8 $59.38 200,060 6.9%
+$35.84          4,270 4.2% 0.6 $39.95 208,210 7.1%
+$38.02          1,150 1.1% 0.3 $50.02 97,460 3.3%
+$38.56          1,790 1.8% 0.9 $45.03 57,950 2.0%
+$33.52             860 0.8% 0.8 $38.33 32,150 1.1%
+$29.90          2,240 2.2% 1.1 $29.82 59,290 2.0%
+$36.69             390 0.4% 0.5 $49.52 20,750 0.7%
+$28.30          6,550 6.4% 1.1 $27.84 170,270 5.8%
+$23.18          1,060 1.0% 0.8 $28.84 36,030 1.2%
+$41.33          5,960 5.8% 0.9 $46.51 187,480 6.4%
+$18.67          6,720 6.6% 1.1 $18.67 176,750 6.1%
+$29.66          1,340 1.3% 0.8 $29.37 46,960 1.6%
+$15.01          9,860 9.7% 1.2 $16.05 240,830 8.2%
+$18.53          2,970 2.9% 1.0 $19.16 81,700 2.8%
+$16.90          2,240 2.2% 1.0 $17.54 63,300 2.2%
+$17.32          8,810 8.6% 1.0 $18.66 244,780 8.4%
+$23.22       11,360 11.1% 1.0 $24.07 340,040 11.6%
+$23.44             260 0.3% 2.3 $23.48 3,300 0.1%
+$30.81          4,190 4.1% 1.1 $34.20 114,050 3.9%
+$29.17          4,650 4.6% 1.3 $30.40 105,650 3.6%
+$23.49       10,360 10.1% 1.4 $23.56 205,220 7.0%
+$22.63          9,340 9.1% 1.2 $19.80 228,260 7.8%
+Number of 
+VacanciesWage 
+Offer
+9,168 $19.48
+176 $37.03
+189 $27.48
+40 $36.13
+115 $27.92
+88 $38.63
+409 $24.68
+548 $21.55
+738 $30.27
+984 $14.95
+222 $28.05
+1,188 $15.62
+395 $15.71
+114 $15.42
+1,026 $15.96
+388 $20.28
+132 $23.65
+645 $23.30
+457 $18.67
+1,033 $21.37 Installation, Maintenance & Repair 
+ Production 
+ Transportation & Material Moving 
+Source: DEED Occupational Employment & Wage Statistics, Qtr. 1 2025At $23.5 in 2024, wages were lower in Region 9 than the state. Overall, Region 9 had the 6th highest median hourly wage level of the 13 
+economic development regions in the state. Wages were highest for management occupations ($48.78) and lowest for food preparation and 
+serving related jobs ($15.01) (see Table 11).
+ Healthcare Support 
+ Protective Service 
+ Food Preparation & Serving Related 
+ Building, Grounds Cleaning & Maint. 
+ Personal Care & Service 
+ Sales & Related 
+ Office & Administrative Support 
+ Farming, Fishing & Forestry 
+ Construction & Extraction  Business & Financial Operations 
+ Computer & Mathematical 
+ Architecture & Engineering 
+ Life, Physical & Social Science 
+ Community & Social Service 
+ Legal 
+ Education, Training & Library 
+ Arts, Design, Entertainment & Media 
+ Healthcare Practitioners & Technical COUNTY PROFILE Blue Earth Co.
+OCCUPATIONS
+Table 11. Occupational Employment & Wage Statistics, 2025
+Occupational GroupRegion 9 State of Minnesota
+ Total, All Occupations 
+ Management 
+Transportation & Material MovingArchitecture & Engineering
+Life, Physical & Social Sciences
+Community & Social ServiceTotal, All OccupationsTable 12. Southwest Job Vacancy Survey Results, 2024
+Healthcare Practitioners & Technical
+Healthcare Support
+Protective ServiceComputer & MathematicalOccupational GroupJOB VACANCY SURVEY
+ Source: DEED Job Vacancy Survey, 2024Food Preparation & Serving Related
+ProductionManagement
+Business & Financial Operations
+Building, Grounds Cleaning & Maint.
+Personal Care & Service
+Construction & Extraction
+Installation, Maintenance & RepairBlue Earth Co. is a part of the Southwest planning region. There were 9168 job vacancies posted by employers in 2024, indicating extensive 
+opportunity in the region, with openings across several occupations and industries (see Figure 14).
+Sales & Related
+Office & Administrative SupportEducation, Training & LibraryAgriculture, 
+Forestry, 
+Fishing & 
+Hunting 
+1%Construction 
+2%
+Manufacturing 
+7%Utilities 
+0%
+Wholesale Trade 
+5%
+Retail Trade 
+17%Transportatio
+n and 
+Warehousing 
+4%
+Information 
+0%Finance 
+and 
+Insurance 
+1%
+Real Estate and 
+Rental and 
+Leasing 
+0%Professional 
+and Technical 
+Services 
+1%Management 
+of Companies 
+and 
+Enterprises Administrative 
+and Waste 
+Services 
+3%Educational 
+Services 
+9%Health Care 
+and Social 
+Assistance 
+24%Arts, 
+Entertainment, 
+and Recreation 
+1%Accommodatio
+n and Food 
+Services 
+11%Other Services, 
+Ex. Public Admin 
+5%Public 
+Administration 
+6%Figure 14. Job Vacancies by Industry, 2024
+Less than High School
+Retail Salespersons
+$34,798/yr
+Home Health and Personal 
+Care Aides
+$36,495/yr
+Fast Food and Counter 
+Workers
+$30,228/yr
+Cashiers
+$30,595/yr
+Teaching Assistants, Except 
+Postsecondary
+$38,031/yr
+First-Line Supervisors of 
+Retail Sales Workers
+$45,427/yr
+Janitors and Cleaners, 
+Except Maids and 
+$37,379/yr
+Construction Laborers
+$49,744/yr
+Bus Drivers, School
+$49,228/yr
+Laborers and Freight, Stock, 
+and Material Movers, Hand
+$43,003/yr
+Estimated 
+Employment 
+2022Projected 
+Employ-
+ment 2032Percent 
+Change      
+2022-2032Numeric 
+Change 
+2016-
+2026
+202,214           207,878      2.8% 5,664
+5,523                5,777         4.6% 254
+690                   690            0.0% 0
+7,679                8,252         7.5% 573
+32,192              33,537      4.2% 1,345
+8,001                8,116         1.4% 115
+19,409              19,084      -1.7% -325
+6,297                6,810         8.1% 513
+2,093                2,046         -2.2% -47
+8,227                8,375         1.8% 148
+5,544                5,985         8.0% 441
+4,127                4,331         4.9% 204
+16,065              16,116      0.3% 51
+28,786              30,498      5.9% 1,712
+13,625              14,377      5.5% 752
+7,097                7,281         2.6% 184
+14,117              14,370      1.8% 253
+Source: DEED 2022-2032 Employment OutlookLicensed Practical and Licensed Vocational 
+Nurses
+Bus and Truck Mechanics and Diesel 
+Engine Specialists
+Plumbers, Pipefitters, and Steamfitters
+$60,689/yrHeavy and Tractor-Trailer Truck Drivers Registered Nurses Accountants and Auditors
+$54,491/yr $85,138/yr $69,245/yrCOUNTY PROFILE Blue Earth Co.
+OCCUPATIONS IN DEMAND
+Table 13. Southwest Planning Region Occupations in Demand, 2024
+High School or Equivalent Some College or Assoc. Deg. Bachelor’s Degree or Higher
+Nursing AssistantsPolice and Sheriff's Patrol 
+OfficersGeneral and Operations Managers
+$39,764/yr $74,684/yr $82,482/yr
+Dental HygienistsElementary School Teachers, 
+Except Special Education
+$58,499/yr $84,870/yr $65,364/yr
+Industrial Engineers
+$61,794/yr $49,828/yr $90,455/yr
+$71,227/yr $96,291/yr
+Automotive Service Technicians and 
+MechanicsPhysical Therapist AssistantsMiddle School Teachers, Except 
+Special and Career/Technical Heating, Air Conditioning, and 
+Refrigeration Mechanics and InstallersIndustrial Engineering 
+Technologists and TechniciansSecondary School Teachers, Except 
+Special and Career/Technical 
+$64,265/yr $60,049/yr $66,349/yr
+Radiologic Technologists and 
+TechniciansSubstitute Teachers, Short-Term
+$59,444/yr $78,236/yr $52,112/yr
+Other Services
+Public AdministrationTable 14. Regional Industry Employment Projections, 2022-2032
+Southwest Planning Region
+Total, All Industries
+Natural Resources & Mining
+Utilities
+Construction
+Manufacturing
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance, Real Estate
+Professional Services & Mgmt. of Companies
+Admin. Support & Waste Mgmt.
+Educational Services
+Health Care & Social Assistance
+Leisure & HospitalityBlue Earth Co. is a part of the Southwest planning region, which is projected to see a 2.8% increase in employment levels over the next 
+decade. In addition to new jobs created, there will be a much larger number of exit openings (see Figure 15).$49,947/yr
+$66,534/yrSubstance abuse, behavioral disorder, and 
+mental health counselorsCivil Engineering Technologists 
+and TechniciansComputer Systems Analysts
+Industrial Machinery MechanicsVeterinary Technologists and 
+TechniciansPreschool Teachers, Except Special 
+Education
+$40,453/yr $37,747/yr
+Source: DEED Occupations in DemandBookkeeping, Accounting, and Auditing 
+ClerksAgricultural Technicians Financial Managers
+$47,963/yr $50,274/yr $119,560/yr
+Human Resources Assistants, 
+Except Payroll and Timekeeping
+$50,024/yr $62,988/yr
+579
+304
+154
+243
+96
+334
+33
+292
+47
+638
+807
+60
+451
+219
+296
+-419
+-1,115
+84
+529
+592
+438
+1,0025,196
+2,685
+479
+852
+365
+1,841
+224
+5,689
+1,841
+3,403
+8,057
+1,233
+12,217
+4,473
+3,602
+10,465
+11,316
+1,771
+3,584
+3,584
+9,377
+10,018-5,000 0 5,000 10,000 15,000
+ Management Occupations
+ Business and Financial…
+ Computer and…
+ Architecture and…
+ Life, Physical, and Social…
+ Community and Social…
+ Legal Occupations
+ Educational Instruction and…
+ Arts, Design,…
+ Healthcare Practitioners…
+ Healthcare Support…
+ Protective Service…
+ Food Preparation and…
+ Building and Grounds…
+ Personal Care and Service…
+ Sales and Related…
+ Office and Administrative…
+ Farming, Fishing, and…
+ Construction and Extraction…
+ Installation, Maintenance,…
+ Production Occupations
+ Transportation and…Figure 15. Regional Occupational 
+Employment Projections, 2022 -2032
+From employment growth From exit openings
+2,143 business establishments annual average wage
+41,230 jobs total industry payroll
+3,927 jobs  
+10.5% increase
+Number of 
+JobsPercent of 
+Total JobsAverage 
+Annual 
+Wage Percent
+41,230 100.0% $57,012 Total, All Industries 2.4%
+400 1.0% $23,004 Agriculture, Forestry, Fish & Hunt -5.2%
+84 0.2% $42,121 Mining -6.7%
+1,947 4.7% $78,276 Construction 1.1%
+4,348 10.5% $75,937 Manufacturing -0.2%
+183 0.4% $116,049 Utilities -0.5%
+1,059 2.6% $76,763 Wholesale Trade -5.3%
+5,599 13.6% $34,146 Retail Trade 1.4%
+1,629 4.0% $55,836 Transportation & Warehousing 0.2%
+542 1.3% $71,327 Information -0.4%
+1,247 3.0% $93,361 Finance & Insurance 3.5%
+874 2.1% $42,428 Real Estate & Rental & Leasing 3.8%
+1,211 2.9% $92,349 Professional & Technical Services 0.2%
+134 0.3% $116,086 Management of Companies -10.1%
+964 2.3% $42,752 Admin. Support & Waste Mgmt. Svcs. -7.1%
+3,776 9.2% $62,482 Educational Services 0.6%
+9,625 23.3% $61,820 Health Care & Social Assistance 7.0%
+538 1.3% $18,916 Arts, Entertainment, & Recreation 3.1%
+4,081 9.9% $21,180 Accommodation & Food Services 1.7%
+1,546 3.7% $40,937 Other Services 8.0%
+1,442 3.5% $72,918 Public Administration 6.1%
+For more information on Blue Earth Co.'s population, labor force, and economic trends, contact:
+Amanda Blaschko Regional Analyst, Southeast & South Central
+CareerForce Rochester  |  2070 College View Rd. E  |  Rochester MN 55904
+Office: 320-441-6571 E-mail: amanda.blaschko@state.mn.us
+web: www.mn.gov/deed/data/regional-lmi/ Data updated: May 23, 2025Blue Earth Co.
+Coming out of the pandemic recession, after gaining jobs over the past year, Blue Earth Co. had the 11th largest economy of the 87 counties 
+in the state. Blue Earth Co. was the 18th fastest growing in the past year and the 16th fastest growing since 2019. From 2019 to 2024, 
+employment in Blue Earth Co. has grown since the pandemic recession.ECONOMIC CHARACTERISTICSCOUNTY PROFILE
+Health Care & Social Assistance
+Arts, Entertainment, & Recreation
+Accommodation & Food ServicesProfessional & Technical ServicesAgriculture, Forestry, Fish & Hunt
+Mining
+Construction
+Manufacturing
+Utilities
+Wholesale Trade
+Retail Trade
+Transportation & Warehousing
+Information
+Finance & Insurance
+Real Estate & Rental & Leasing
+Admin. Support & Waste Mgmt. Svcs.
+Educational ServicesManagement of CompaniesTotal, All IndustriesTable 15. Blue Earth Co. Industry 
+Employment Statistics, 2024Job change,                    
+2019-2024$57,012
+$2,350,618,340
+Source: DEED Quarterly Census of Employment & Wages (QCEW)Other Services
+Public Administration2.4%
+-5.2%
+-6.7%
+1.1%
+-0.2%
+-0.5%
+-5.3%
+1.4%
+0.2%
+-0.4%
+3.5%
+3.8%
+0.2%
+-10.1%
+-7.1%
+0.6%
+7.0%
+3.1%
+1.7%
+8.0%
+6.1%-15.0% -10.0% -5.0% 0.0% 5.0% 10.0%Figure 17. Change in Jobs, 2023 -202435,43836,94536,19240,275
+37,30337,72140,28041,230
+2,637,3232,680,530
+2,563,3912,901,632
+2,707,8212,931,419
+2,300,0002,400,0002,500,0002,600,0002,700,0002,800,0002,900,0003,000,000
+32,00034,00036,00038,00040,00042,000
+2005 2006 2007 2008 2009 2010 2011 2012 2013 2014 2015 2016 2017 2018 2019 2020 2021 2022 2023 2024Statewide JobsLocal JobsSource: DEED QCEW program Figure 16. Industry Employment Statistics, 2005 -2024
+Blue Earth Co. Minnesota
+
+================================================================================
+INSTRUCTIONS
+================================================================================
+
+1. Copy the SYSTEM PROMPT above and paste it as the system message in Grok
+2. Copy the USER PROMPT above and paste it as the user message in Grok
+3. Grok should return a JSON response with the required schema:
+   - adj_raw: float in [-1, 1]
+   - adj: float (after bounds & damping)
+   - pred_yield_bu_ac: float (= ml_pred * (1 + adj))
+   - low_80: float
+   - high_80: float
+   - drivers: array of 3-5 short phrases
+4. The adjustment uses alpha=0.15 and damping based on ML confidence
+5. Only use allowed fields from fact sheet (economy, market, insurance, weather flags, NASS progress)
