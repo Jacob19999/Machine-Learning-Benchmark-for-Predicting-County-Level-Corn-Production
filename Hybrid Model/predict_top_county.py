@@ -55,6 +55,30 @@ for idx, row in top_counties.iterrows():
     print(f"  {rank}. {row['county_name']} (FIPS: {int(row['fips'])}) - {row['corn_production_bu']:,.0f} bushels")
 print("-" * 80)
 
+# Load LightGBM predictions from CSV
+print(f"\n{'='*80}")
+print("LOADING LIGHTGBM PREDICTIONS FROM CSV")
+print("="*80)
+lgbm_predictions_path = project_root / '2022_annualized_predictions_by_county.csv'
+lgbm_predictions = {}
+
+if lgbm_predictions_path.exists():
+    lgbm_df = pd.read_csv(lgbm_predictions_path)
+    print(f"Loaded LightGBM predictions from {lgbm_predictions_path.name}")
+    print(f"  Found {len(lgbm_df)} counties in CSV")
+    
+    # Create lookup dictionary: FIPS -> LightGBM prediction
+    for _, row in lgbm_df.iterrows():
+        fips_code = int(row['FIPS'])
+        lgbm_pred = row['LightGBM_2022_Bushels']
+        if pd.notna(lgbm_pred):
+            lgbm_predictions[fips_code] = float(lgbm_pred)
+    
+    print(f"  Loaded {len(lgbm_predictions)} valid LightGBM predictions")
+else:
+    print(f"[WARN] LightGBM predictions file not found: {lgbm_predictions_path}")
+    print(f"  Will fall back to historical average for ML baseline")
+
 # Note: API key not needed - we're generating prompt files for manual upload
 print(f"\nNote: LLM API call is disabled. Generating prompt files for manual Grok upload.")
 print(f"\n{'='*80}")
@@ -62,7 +86,7 @@ print("GENERATING PROMPT FILES FOR TOP 10 COUNTIES")
 print("="*80)
 
 # System prompt (same for all counties)
-system_prompt = """You are a conservative adjustment module for county-level corn yield.
+system_prompt = """You are a conservative adjustment module for county-level corn production.
 
 Your ONLY inputs are a structured "factsheet" with exogenous signals that the ML model does not capture well.
 
@@ -88,7 +112,7 @@ hail_event_flag, derecho_event_flag, localized_flood_flag.
 
 nass_planting_progress_pct, nass_harvest_progress_pct (weekly progress summaries).
 
-ML meta: ml_pred (bu/ac), ml_band_width (U−L), train_rmse.
+ML meta: ml_pred (bushels), ml_band_width (U−L in bushels), train_rmse (bushels).
 
 Forbidden: any soils, ethanol distance, recent yields, or windowed agronomic/drought/canopy variables. If such fields appear, ignore them.
 
@@ -114,9 +138,9 @@ For a SINGLE county:
 {
   "adj_raw": float,                  // in [-1, 1], before damping
   "adj": float,                      // after bounds & damping rule above
-  "pred_yield_bu_ac": float,         // = ml_pred * (1 + adj)
-  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj)
-  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj)
+  "pred_production_bu": float,       // = ml_pred * (1 + adj) in total bushels
+  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj) in bushels
+  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj) in bushels
   "drivers": [ "short phrase", ... ] // 3–5 concise drivers referencing ONLY allowed fields
 }
 
@@ -125,7 +149,7 @@ For MULTIPLE counties (differentiated by FIPS):
   "<fips_code>": {
     "adj_raw": float,
     "adj": float,
-    "pred_yield_bu_ac": float,
+    "pred_production_bu": float,
     "low_80": float,
     "high_80": float,
     "drivers": [ "short phrase", ... ]
@@ -137,7 +161,7 @@ For MULTIPLE counties (differentiated by FIPS):
 No chain-of-thought. Do not explain your reasoning; just fill the JSON.
 
 If required fields are missing (e.g., ml_pred, ml_band_width, train_rmse), return:
-{"adj_raw": 0.0, "adj": 0.0, "pred_yield_bu_ac": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
+{"adj_raw": 0.0, "adj": 0.0, "pred_production_bu": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
 
 FIPS codes should be strings (e.g., "27129" not 27129)."""
 
@@ -161,12 +185,17 @@ for rank, (idx, county_row) in enumerate(top_counties.iterrows(), 1):
     else:
         predict_year = 2023
     
-    # Estimate ML baseline
-    if len(recent_data) > 0:
+    # Get ML baseline from LightGBM predictions CSV
+    if fips in lgbm_predictions:
+        ml_baseline = lgbm_predictions[fips]
+        print(f"  [OK] Using LightGBM prediction from CSV: {ml_baseline:,.0f} bushels")
+    elif len(recent_data) > 0:
         recent_avg = recent_data.head(3)['corn_production_bu'].mean()
         ml_baseline = float(recent_avg)
+        print(f"  [WARN] LightGBM prediction not found in CSV, using historical average: {ml_baseline:,.0f} bushels")
     else:
         ml_baseline = float(total_production / 20)
+        print(f"  [WARN] LightGBM prediction not found, using estimated baseline: {ml_baseline:,.0f} bushels")
     
     p10_ml = ml_baseline * 0.8
     p90_ml = ml_baseline * 1.2
@@ -189,23 +218,13 @@ for rank, (idx, county_row) in enumerate(top_counties.iterrows(), 1):
         print(f"  [OK] Extracted {len(factsheet_text)} characters from PDF")
         
         # Estimate ML metadata (these would come from actual ML model in production)
-        # For now, estimate based on historical data
-        if len(recent_data) > 0:
-            # Estimate bushels per acre (rough estimate: assume ~150-200 bu/ac typical)
-            # Convert total bushels to bu/ac using acres planted if available
-            acres_planted = recent_data.iloc[0].get('corn_acres_planted', None) if 'corn_acres_planted' in recent_data.columns else None
-            if acres_planted and acres_planted > 0:
-                ml_pred_bu_ac = ml_baseline / acres_planted
-            else:
-                # Rough estimate: assume 180 bu/ac average
-                ml_pred_bu_ac = 180.0
-        else:
-            ml_pred_bu_ac = 180.0
+        # ml_baseline is already in total bushels
+        ml_pred_bu = ml_baseline  # Total production in bushels
         
         # Estimate band width and RMSE (these would come from ML model in production)
-        # Rough estimates: band width ~20% of prediction, RMSE ~10% of prediction
-        ml_band_width = ml_pred_bu_ac * 0.20  # 20% uncertainty band
-        train_rmse = ml_pred_bu_ac * 0.10     # 10% RMSE estimate
+        # Rough estimates: band width ~20% of prediction, RMSE ~10% of prediction (in bushels)
+        ml_band_width = ml_pred_bu * 0.20  # 20% uncertainty band in bushels
+        train_rmse = ml_pred_bu * 0.10     # 10% RMSE estimate in bushels
         
         # Build user prompt (single county format)
         user_prompt = f"""Analyze this corn production factsheet and provide a bounded adjustment to the ML baseline prediction.
@@ -213,9 +232,9 @@ for rank, (idx, county_row) in enumerate(top_counties.iterrows(), 1):
 County FIPS: {fips}
 
 ML Meta:
-- ml_pred (bu/ac): {ml_pred_bu_ac:.2f}
-- ml_band_width (U−L): {ml_band_width:.2f}
-- train_rmse: {train_rmse:.2f}
+- ml_pred (bushels): {ml_pred_bu:,.0f}
+- ml_band_width (U−L in bushels): {ml_band_width:,.0f}
+- train_rmse (bushels): {train_rmse:,.0f}
 
 Fact Sheet Information:
 {factsheet_text}
@@ -237,16 +256,15 @@ Return ONLY the JSON object, no other text."""
             f.write(f"Rank: {rank} (Top 10 Corn Production Counties)\n")
             f.write(f"County: {county_name}\n")
             f.write(f"FIPS Code: {fips}\n")
-            f.write(f"Year: {predict_year}\n")
-            f.write(f"Total Production (all years): {total_production:,.0f} bushels\n")
+            f.write(f"Year: 2022 (We will only provide adjustment for 2022)\n")
             f.write(f"\n")
             
             f.write("ML BASELINE PREDICTION\n")
             f.write("-"*80 + "\n")
             f.write(f"ML Baseline (total): {ml_baseline:,.0f} bushels\n")
-            f.write(f"ML Pred (bu/ac): {ml_pred_bu_ac:.2f}\n")
-            f.write(f"ML Band Width: {ml_band_width:.2f}\n")
-            f.write(f"Train RMSE: {train_rmse:.2f}\n")
+            f.write(f"ML Pred (bushels): {ml_pred_bu:,.0f}\n")
+            f.write(f"ML Band Width (bushels): {ml_band_width:,.0f}\n")
+            f.write(f"Train RMSE (bushels): {train_rmse:,.0f}\n")
             f.write(f"P10 (10th percentile): {p10_ml:,.0f} bushels\n")
             f.write(f"P90 (90th percentile): {p90_ml:,.0f} bushels\n")
             f.write(f"Uncertainty Interval: [{p10_ml:,.0f}, {p90_ml:,.0f}] bushels\n")
@@ -285,9 +303,9 @@ Return ONLY the JSON object, no other text."""
             f.write("3. Grok should return a JSON response with the required schema:\n")
             f.write("   - adj_raw: float in [-1, 1]\n")
             f.write("   - adj: float (after bounds & damping)\n")
-            f.write("   - pred_yield_bu_ac: float (= ml_pred * (1 + adj))\n")
-            f.write("   - low_80: float\n")
-            f.write("   - high_80: float\n")
+            f.write("   - pred_production_bu: float (= ml_pred * (1 + adj)) in total bushels\n")
+            f.write("   - low_80: float in bushels\n")
+            f.write("   - high_80: float in bushels\n")
             f.write("   - drivers: array of 3-5 short phrases\n")
             f.write("4. The adjustment uses alpha=0.15 and damping based on ML confidence\n")
             f.write("5. Only use allowed fields from fact sheet (economy, market, insurance, weather flags, NASS progress)\n")
@@ -362,24 +380,18 @@ COUNTIES TO ANALYZE:
         recent_data = county_data['recent_data']
         ml_baseline = county_data['ml_baseline']
         
-        if len(recent_data) > 0:
-            acres_planted = recent_data.iloc[0].get('corn_acres_planted', None) if 'corn_acres_planted' in recent_data.columns else None
-            if acres_planted and acres_planted > 0:
-                ml_pred_bu_ac = ml_baseline / acres_planted
-            else:
-                ml_pred_bu_ac = 180.0
-        else:
-            ml_pred_bu_ac = 180.0
+        # ml_baseline is already in total bushels
+        ml_pred_bu = ml_baseline  # Total production in bushels
         
-        ml_band_width = ml_pred_bu_ac * 0.20
-        train_rmse = ml_pred_bu_ac * 0.10
+        ml_band_width = ml_pred_bu * 0.20  # 20% uncertainty band in bushels
+        train_rmse = ml_pred_bu * 0.10     # 10% RMSE estimate in bushels
         
         batch_user_prompt += f"""
 --- COUNTY {county_data['rank']}: {county_data['county_name']} (FIPS: {county_data['fips']}) ---
 ML Meta:
-- ml_pred (bu/ac): {ml_pred_bu_ac:.2f}
-- ml_band_width (U−L): {ml_band_width:.2f}
-- train_rmse: {train_rmse:.2f}
+- ml_pred (bushels): {ml_pred_bu:,.0f}
+- ml_band_width (U−L in bushels): {ml_band_width:,.0f}
+- train_rmse (bushels): {train_rmse:,.0f}
 
 Fact Sheet Information:
 {county_data['factsheet_text']}
@@ -397,9 +409,9 @@ Example format (for multiple counties):
   "{batch_counties_data[0]['fips']}": {{
     "adj_raw": -0.08,
     "adj": -0.06,
-    "pred_yield_bu_ac": 169.2,
-    "low_80": 150.5,
-    "high_80": 188.0,
+    "pred_production_bu": 320000000,
+    "low_80": 285000000,
+    "high_80": 355000000,
     "drivers": [
       "High unemployment rate indicating labor stress",
       "Elevated required wage vs regional median",
@@ -409,9 +421,9 @@ Example format (for multiple counties):
   "{batch_counties_data[1]['fips'] if len(batch_counties_data) > 1 else batch_counties_data[0]['fips']}": {{
     "adj_raw": 0.05,
     "adj": 0.04,
-    "pred_yield_bu_ac": 187.2,
-    "low_80": 166.3,
-    "high_80": 208.1,
+    "pred_production_bu": 335000000,
+    "low_80": 298000000,
+    "high_80": 372000000,
     "drivers": [
       "Strong labor availability",
       "No logistics disruptions",
@@ -423,7 +435,8 @@ Example format (for multiple counties):
 IMPORTANT:
 - Return ONE JSON object with all counties
 - Use FIPS codes as keys (as strings, e.g., "{batch_counties_data[0]['fips']}")
-- Each county must have the complete schema: adj_raw, adj, pred_yield_bu_ac, low_80, high_80, drivers
+- Each county must have the complete schema: adj_raw, adj, pred_production_bu, low_80, high_80, drivers
+- All production values (pred_production_bu, low_80, high_80) must be in total bushels
 - Base each county's analysis ONLY on its own fact sheet data
 - Use ONLY allowed fields (economy, market, insurance, weather flags, NASS progress)
 - Ignore agronomic variables already modeled by ML
@@ -439,7 +452,7 @@ Return ONLY the JSON object, no other text."""
         f.write("BATCH INFORMATION\n")
         f.write("-"*80 + "\n")
         f.write(f"Number of Counties: {len(batch_counties_data)}\n")
-        f.write(f"Year: {predict_year}\n")
+        f.write(f"Year: 2022 (We will only provide adjustment for 2022)\n")
         f.write(f"\nCounties included:\n")
         for county_data in batch_counties_data:
             f.write(f"  {county_data['rank']}. {county_data['county_name']} (FIPS: {county_data['fips']}) - ML Baseline: {county_data['ml_baseline']:,.0f} bushels\n")
@@ -463,8 +476,9 @@ Return ONLY the JSON object, no other text."""
         f.write("1. Copy the SYSTEM PROMPT above and paste it as the system message in Grok\n")
         f.write("2. Copy the USER PROMPT above and paste it as the user message in Grok\n")
         f.write("3. Grok should return a SINGLE JSON object with all counties\n")
-        f.write("4. The JSON format should be: {<fips>: {adj_raw, adj, pred_yield_bu_ac, low_80, high_80, drivers}, ...}\n")
+        f.write("4. The JSON format should be: {<fips>: {adj_raw, adj, pred_production_bu, low_80, high_80, drivers}, ...}\n")
         f.write("5. Each county must have the complete schema with all required fields\n")
+        f.write("6. All production values (pred_production_bu, low_80, high_80) must be in total bushels\n")
         f.write("6. Only use allowed fields from fact sheets (economy, market, insurance, weather flags, NASS progress)\n")
         f.write(f"\nExample response format:\n")
         f.write("{\n")
@@ -472,9 +486,9 @@ Return ONLY the JSON object, no other text."""
             f.write(f'  "{county_data["fips"]}": {{\n')
             f.write(f'    "adj_raw": -0.08,\n')
             f.write(f'    "adj": -0.06,\n')
-            f.write(f'    "pred_yield_bu_ac": 169.2,\n')
-            f.write(f'    "low_80": 150.5,\n')
-            f.write(f'    "high_80": 188.0,\n')
+            f.write(f'    "pred_production_bu": 320000000,\n')
+            f.write(f'    "low_80": 285000000,\n')
+            f.write(f'    "high_80": 355000000,\n')
             f.write(f'    "drivers": ["Driver 1", "Driver 2", "Driver 3"]\n')
             f.write(f'  }}{"," if i < 1 else ""}\n')
         if len(batch_counties_data) > 2:

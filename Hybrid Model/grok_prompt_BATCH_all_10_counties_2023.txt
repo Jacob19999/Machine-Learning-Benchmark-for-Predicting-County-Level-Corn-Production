@@ -5,25 +5,25 @@ GROK BATCH PROMPT FOR MANUAL UPLOAD (ALL 10 COUNTIES)
 BATCH INFORMATION
 --------------------------------------------------------------------------------
 Number of Counties: 10
-Year: 2023
+Year: 2022 (We will only provide adjustment for 2022)
 
 Counties included:
-  1. Renville (FIPS: 27129) - ML Baseline: 340,869,471 bushels
-  2. Redwood (FIPS: 27127) - ML Baseline: 321,424,826 bushels
-  3. Martin (FIPS: 27091) - ML Baseline: 309,856,374 bushels
-  4. Faribault (FIPS: 27043) - ML Baseline: 280,988,246 bushels
-  5. Blue Earth (FIPS: 27013) - ML Baseline: 275,480,373 bushels
-  6. Freeborn (FIPS: 27047) - ML Baseline: 255,144,178 bushels
-  7. Nobles (FIPS: 27105) - ML Baseline: 250,271,250 bushels
-  8. Mower (FIPS: 27099) - ML Baseline: 179,334,967 bushels
-  9. Jackson (FIPS: 27063) - ML Baseline: 253,981,933 bushels
-  10. Cottonwood (FIPS: 27033) - ML Baseline: 241,398,992 bushels
+  1. Renville (FIPS: 27129) - ML Baseline: 341,416,157 bushels
+  2. Redwood (FIPS: 27127) - ML Baseline: 326,150,182 bushels
+  3. Martin (FIPS: 27091) - ML Baseline: 309,023,429 bushels
+  4. Faribault (FIPS: 27043) - ML Baseline: 247,214,500 bushels
+  5. Blue Earth (FIPS: 27013) - ML Baseline: 263,364,297 bushels
+  6. Freeborn (FIPS: 27047) - ML Baseline: 235,594,929 bushels
+  7. Nobles (FIPS: 27105) - ML Baseline: 208,082,555 bushels
+  8. Mower (FIPS: 27099) - ML Baseline: 250,308,162 bushels
+  9. Jackson (FIPS: 27063) - ML Baseline: 249,422,919 bushels
+  10. Cottonwood (FIPS: 27033) - ML Baseline: 245,527,433 bushels
 
 ================================================================================
 SYSTEM PROMPT (for Grok)
 ================================================================================
 
-You are a conservative adjustment module for county-level corn yield.
+You are a conservative adjustment module for county-level corn production.
 
 Your ONLY inputs are a structured "factsheet" with exogenous signals that the ML model does not capture well.
 
@@ -49,7 +49,7 @@ hail_event_flag, derecho_event_flag, localized_flood_flag.
 
 nass_planting_progress_pct, nass_harvest_progress_pct (weekly progress summaries).
 
-ML meta: ml_pred (bu/ac), ml_band_width (U−L), train_rmse.
+ML meta: ml_pred (bushels), ml_band_width (U−L in bushels), train_rmse (bushels).
 
 Forbidden: any soils, ethanol distance, recent yields, or windowed agronomic/drought/canopy variables. If such fields appear, ignore them.
 
@@ -75,9 +75,9 @@ For a SINGLE county:
 {
   "adj_raw": float,                  // in [-1, 1], before damping
   "adj": float,                      // after bounds & damping rule above
-  "pred_yield_bu_ac": float,         // = ml_pred * (1 + adj)
-  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj)
-  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj)
+  "pred_production_bu": float,       // = ml_pred * (1 + adj) in total bushels
+  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj) in bushels
+  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj) in bushels
   "drivers": [ "short phrase", ... ] // 3–5 concise drivers referencing ONLY allowed fields
 }
 
@@ -86,7 +86,7 @@ For MULTIPLE counties (differentiated by FIPS):
   "<fips_code>": {
     "adj_raw": float,
     "adj": float,
-    "pred_yield_bu_ac": float,
+    "pred_production_bu": float,
     "low_80": float,
     "high_80": float,
     "drivers": [ "short phrase", ... ]
@@ -98,7 +98,7 @@ For MULTIPLE counties (differentiated by FIPS):
 No chain-of-thought. Do not explain your reasoning; just fill the JSON.
 
 If required fields are missing (e.g., ml_pred, ml_band_width, train_rmse), return:
-{"adj_raw": 0.0, "adj": 0.0, "pred_yield_bu_ac": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
+{"adj_raw": 0.0, "adj": 0.0, "pred_production_bu": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
 
 FIPS codes should be strings (e.g., "27129" not 27129).
 
@@ -114,9 +114,9 @@ COUNTIES TO ANALYZE:
 
 --- COUNTY 1: Renville (FIPS: 27129) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 341,416,157
+- ml_band_width (U−L in bushels): 68,283,231
+- train_rmse (bushels): 34,141,616
 
 Fact Sheet Information:
 2024 population: 14,453 people
@@ -1017,9 +1017,9 @@ Renville Co. Minnesota
 
 --- COUNTY 2: Redwood (FIPS: 27127) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 326,150,182
+- ml_band_width (U−L in bushels): 65,230,036
+- train_rmse (bushels): 32,615,018
 
 Fact Sheet Information:
 2024 population: 15,254 people
@@ -1918,9 +1918,9 @@ Redwood Co. Minnesota
 
 --- COUNTY 3: Martin (FIPS: 27091) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 309,023,429
+- ml_band_width (U−L in bushels): 61,804,686
+- train_rmse (bushels): 30,902,343
 
 Fact Sheet Information:
 2024 population: 19,561 people
@@ -2819,9 +2819,9 @@ Martin Co. Minnesota
 
 --- COUNTY 4: Faribault (FIPS: 27043) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 247,214,500
+- ml_band_width (U−L in bushels): 49,442,900
+- train_rmse (bushels): 24,721,450
 
 Fact Sheet Information:
 2024 population: 13,886 people
@@ -3720,9 +3720,9 @@ Faribault Co. Minnesota
 
 --- COUNTY 5: Blue Earth (FIPS: 27013) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 263,364,297
+- ml_band_width (U−L in bushels): 52,672,859
+- train_rmse (bushels): 26,336,430
 
 Fact Sheet Information:
 2024 population: 70,700 people
@@ -4622,9 +4622,9 @@ Blue Earth Co. Minnesota
 
 --- COUNTY 6: Freeborn (FIPS: 27047) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 235,594,929
+- ml_band_width (U−L in bushels): 47,118,986
+- train_rmse (bushels): 23,559,493
 
 Fact Sheet Information:
 2024 population: 30,314 people
@@ -5529,9 +5529,9 @@ Freeborn Co. Minnesota
 
 --- COUNTY 7: Nobles (FIPS: 27105) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 208,082,555
+- ml_band_width (U−L in bushels): 41,616,511
+- train_rmse (bushels): 20,808,255
 
 Fact Sheet Information:
 2024 population: 21,969 people
@@ -6429,9 +6429,9 @@ Nobles Co. Minnesota
 
 --- COUNTY 8: Mower (FIPS: 27099) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 250,308,162
+- ml_band_width (U−L in bushels): 50,061,632
+- train_rmse (bushels): 25,030,816
 
 Fact Sheet Information:
 2024 population: 40,900 people
@@ -7338,9 +7338,9 @@ Mower Co. Minnesota
 
 --- COUNTY 9: Jackson (FIPS: 27063) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 249,422,919
+- ml_band_width (U−L in bushels): 49,884,584
+- train_rmse (bushels): 24,942,292
 
 Fact Sheet Information:
 2024 population: 9,861 people
@@ -8238,9 +8238,9 @@ Jackson Co. Minnesota
 
 --- COUNTY 10: Cottonwood (FIPS: 27033) ---
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 245,527,433
+- ml_band_width (U−L in bushels): 49,105,487
+- train_rmse (bushels): 24,552,743
 
 Fact Sheet Information:
 2024 population: 11,338 people
@@ -9146,9 +9146,9 @@ Example format (for multiple counties):
   "27129": {
     "adj_raw": -0.08,
     "adj": -0.06,
-    "pred_yield_bu_ac": 169.2,
-    "low_80": 150.5,
-    "high_80": 188.0,
+    "pred_production_bu": 320000000,
+    "low_80": 285000000,
+    "high_80": 355000000,
     "drivers": [
       "High unemployment rate indicating labor stress",
       "Elevated required wage vs regional median",
@@ -9158,9 +9158,9 @@ Example format (for multiple counties):
   "27127": {
     "adj_raw": 0.05,
     "adj": 0.04,
-    "pred_yield_bu_ac": 187.2,
-    "low_80": 166.3,
-    "high_80": 208.1,
+    "pred_production_bu": 335000000,
+    "low_80": 298000000,
+    "high_80": 372000000,
     "drivers": [
       "Strong labor availability",
       "No logistics disruptions",
@@ -9172,7 +9172,8 @@ Example format (for multiple counties):
 IMPORTANT:
 - Return ONE JSON object with all counties
 - Use FIPS codes as keys (as strings, e.g., "27129")
-- Each county must have the complete schema: adj_raw, adj, pred_yield_bu_ac, low_80, high_80, drivers
+- Each county must have the complete schema: adj_raw, adj, pred_production_bu, low_80, high_80, drivers
+- All production values (pred_production_bu, low_80, high_80) must be in total bushels
 - Base each county's analysis ONLY on its own fact sheet data
 - Use ONLY allowed fields (economy, market, insurance, weather flags, NASS progress)
 - Ignore agronomic variables already modeled by ML
@@ -9186,8 +9187,9 @@ INSTRUCTIONS
 1. Copy the SYSTEM PROMPT above and paste it as the system message in Grok
 2. Copy the USER PROMPT above and paste it as the user message in Grok
 3. Grok should return a SINGLE JSON object with all counties
-4. The JSON format should be: {<fips>: {adj_raw, adj, pred_yield_bu_ac, low_80, high_80, drivers}, ...}
+4. The JSON format should be: {<fips>: {adj_raw, adj, pred_production_bu, low_80, high_80, drivers}, ...}
 5. Each county must have the complete schema with all required fields
+6. All production values (pred_production_bu, low_80, high_80) must be in total bushels
 6. Only use allowed fields from fact sheets (economy, market, insurance, weather flags, NASS progress)
 
 Example response format:
@@ -9195,17 +9197,17 @@ Example response format:
   "27129": {
     "adj_raw": -0.08,
     "adj": -0.06,
-    "pred_yield_bu_ac": 169.2,
-    "low_80": 150.5,
-    "high_80": 188.0,
+    "pred_production_bu": 320000000,
+    "low_80": 285000000,
+    "high_80": 355000000,
     "drivers": ["Driver 1", "Driver 2", "Driver 3"]
   },
   "27127": {
     "adj_raw": -0.08,
     "adj": -0.06,
-    "pred_yield_bu_ac": 169.2,
-    "low_80": 150.5,
-    "high_80": 188.0,
+    "pred_production_bu": 320000000,
+    "low_80": 285000000,
+    "high_80": 355000000,
     "drivers": ["Driver 1", "Driver 2", "Driver 3"]
   }
   ... (and 8 more counties)

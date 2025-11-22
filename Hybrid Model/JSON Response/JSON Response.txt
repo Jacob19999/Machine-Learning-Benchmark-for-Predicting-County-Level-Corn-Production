@@ -1,96 +1,113 @@
+Adjusted Corn Production Predictions for Top 10 Counties (2022)
+
+Below is a summary of the conservative adjustments applied to the ML baseline predictions for each county, based on the provided exogenous economic signals. Adjustments are small and damped, reflecting only clear signals from allowed fields (e.g., labor availability, wage pressures, industry metrics). The outputs follow the required schema, with values rounded to whole bushels where applicable for readability.
+
+Faribault County (Rank 4, FIPS 27043)
+
 {
-  "27129": {
-    "adj_raw": -0.05,
-    "adj": -0.05,
-    "pred_yield_bu_ac": 171.0,
-    "low_80": 152.1,
-    "high_80": 189.9,
-    "drivers": [
-      "Declining available workers (-13.5%)",
-      "Higher unemployment rate (4.0% vs state 2.8%)",
-      "Labor force projected to shrink 2025-2035",
-      "Evidence of domestic out-migration"
-    ]
-  },
-  "27127": {
-    "adj_raw": -0.03,
-    "adj": -0.03,
-    "pred_yield_bu_ac": 174.6,
-    "low_80": 155.3,
-    "high_80": 193.9,
-    "drivers": [
-      "Tight labor market with low jobseekers per vacancy",
-      "Ongoing domestic out-migration",
-      "Limited evidence of severe disruptions"
-    ]
-  },
-  "27091": {
-    "adj_raw": 0.0,
-    "adj": 0.0,
-    "pred_yield_bu_ac": 180.0,
-    "low_80": 160.2,
-    "high_80": 199.8,
-    "drivers": ["Insufficient allowed exogenous signals present"]
-  },
-  "27043": {
-    "adj_raw": 0.0,
-    "adj": 0.0,
-    "pred_yield_bu_ac": 180.0,
-    "low_80": 160.2,
-    "high_80": 199.8,
-    "drivers": ["Insufficient allowed exogenous signals present"]
-  },
-  "27013": {
-    "adj_raw": 0.0,
-    "adj": 0.0,
-    "pred_yield_bu_ac": 180.0,
-    "low_80": 160.2,
-    "high_80": 199.8,
-    "drivers": ["Insufficient allowed exogenous signals present"]
-  },
-  "27047": {
-    "adj_raw": 0.0,
-    "adj": 0.0,
-    "pred_yield_bu_ac": 180.0,
-    "low_80": 160.2,
-    "high_80": 199.8,
-    "drivers": ["Insufficient allowed exogenous signals present"]
-  },
-  "27105": {
-    "adj_raw": 0.0,
-    "adj": 0.0,
-    "pred_yield_bu_ac": 180.0,
-    "low_80": 160.2,
-    "high_80": 199.8,
-    "drivers": ["Insufficient allowed exogenous signals present"]
-  },
-  "27099": {
-    "adj_raw": 0.0,
-    "adj": 0.0,
-    "pred_yield_bu_ac": 180.0,
-    "low_80": 160.2,
-    "high_80": 199.8,
-    "drivers": ["Insufficient allowed exogenous signals present"]
-  },
-  "27063": {
-    "adj_raw": 0.0,
-    "adj": 0.0,
-    "pred_yield_bu_ac": 180.0,
-    "low_80": 160.2,
-    "high_80": 199.8,
-    "drivers": ["Insufficient allowed exogenous signals present"]
-  },
-  "27033": {
-    "adj_raw": -0.07,
-    "adj": -0.07,
-    "pred_yield_bu_ac": 167.4,
-    "low_80": 148.9,
-    "high_80": 185.9,
-    "drivers": [
-      "Sharp labor force decline (-11.2% available workers)",
-      "Higher unemployment (4.7% vs state 2.8%)",
-      "Significant job losses post-pandemic",
-      "Projected continued labor force shrinkage"
-    ]
-  }
+"adj_raw": -0.3,
+"adj": -0.1297,
+"pred_production_bu": 215150852,
+"low_80": 202292952,
+"high_80": 247246941,
+"drivers": ["Overall job loss in past year", "Significant decline in wholesale trade (-29.7%)", "Manufacturing decline (-2.0%)", "Mixed industry changes"]
+}
+
+Freeborn County (Rank 6, FIPS 27047)
+
+{
+"adj_raw": 0.2,
+"adj": 0.1297,
+"pred_production_bu": 266151522,
+"low_80": 231286090,
+"high_80": 282682999,
+"drivers": ["Job gains in past year", "Growth in manufacturing (2.8%)", "Growth in wholesale (2.0%)", "Increase in admin support (22.8%)"]
+}
+
+Jackson County (Rank 9, FIPS 27063)
+
+{
+"adj_raw": 0.3,
+"adj": 0.1297,
+"pred_production_bu": 281772999,
+"low_80": 244861177,
+"high_80": 299274772,
+"drivers": ["Job gains in past year", "Strong growth in agriculture (16.8%)", "Growth in finance (13.5%)", "Growth in arts (50.0%)", "Decline in manufacturing (-3.9%)"]
+}
+
+Mower County (Rank 8, FIPS 27099)
+
+{
+"adj_raw": 0.1,
+"adj": 0.0865,
+"pred_production_bu": 271951426,
+"low_80": 238912602,
+"high_80": 292004291,
+"drivers": ["Job gains in past year", "Growth in construction (5.4%)", "Growth in manufacturing (2.0%)", "Decline in transportation (-12.4%)"]
+}
+
+Martin County (Rank 3, FIPS 27091)
+
+{
+"adj_raw": -0.1,
+"adj": -0.0865,
+"pred_production_bu": 282303263,
+"low_80": 261287382,
+"high_80": 319351245,
+"drivers": ["Job loss in past year", "Decline in agriculture (-1.6%)", "Growth in construction (10.4%)", "Decline in transportation (-8.4%)"]
+}
+
+Nobles County (Rank 7, FIPS 27105)
+
+{
+"adj_raw": -0.4,
+"adj": -0.1297,
+"pred_production_bu": 181094308,
+"low_80": 170271704,
+"high_80": 208109861,
+"drivers": ["Job loss in past year", "Decline in agriculture (-8.5%)", "Sharp decline in admin support (-77.0%)", "Decline in health care (-9.1%)"]
+}
+
+Renville County (Rank 1, FIPS 27129)
+
+{
+"adj_raw": -0.1,
+"adj": -0.0865,
+"pred_production_bu": 311895107,
+"low_80": 288676280,
+"high_80": 352826564,
+"drivers": ["Job gains in past year", "Decline in construction (-5.9%)", "Decline in management (-34.1%)", "Decline in admin (-20.7%)", "Growth in transportation (2.6%)"]
+}
+
+Blue Earth County (Rank 5, FIPS 27013)
+
+{
+"adj_raw": 0.0,
+"adj": 0.0,
+"pred_production_bu": 263364297,
+"low_80": 237027868,
+"high_80": 289700727,
+"drivers": ["Strong job gains in past year", "Decline in agriculture (-5.2%)", "Growth in health care (7.0%)", "Decline in wholesale (-5.3%)", "Growth in public administration (6.1%)"]
+}
+
+Cottonwood County (Rank 10, FIPS 27033)
+
+{
+"adj_raw": -0.5,
+"adj": -0.1297,
+"pred_production_bu": 213682597,
+"low_80": 200912443,
+"high_80": 245559653,
+"drivers": ["Job loss in past year", "Sharp decline in manufacturing (-43.4%)", "Decline in admin support (-20.1%)", "Overall employment down since 2019"]
+}
+
+Redwood County (Rank 2, FIPS 27127)
+
+{
+"adj_raw": 0.2,
+"adj": 0.1297,
+"pred_production_bu": 368451765,
+"low_80": 320185161,
+"high_80": 391337419,
+"drivers": ["Job gains in past year", "Growth in wholesale (6.6%)", "Growth in manufacturing (1.5%)", "Decline in finance (-25.1%)", "Growth in public (5.1%)"]
 }

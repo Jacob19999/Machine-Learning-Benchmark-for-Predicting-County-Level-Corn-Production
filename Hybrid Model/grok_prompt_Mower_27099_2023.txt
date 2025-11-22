@@ -7,18 +7,17 @@ COUNTY INFORMATION
 Rank: 8 (Top 10 Corn Production Counties)
 County: Mower
 FIPS Code: 27099
-Year: 2023
-Total Production (all years): 5,138,842,233 bushels
+Year: 2022 (We will only provide adjustment for 2022)
 
 ML BASELINE PREDICTION
 --------------------------------------------------------------------------------
-ML Baseline (total): 179,334,967 bushels
-ML Pred (bu/ac): 180.00
-ML Band Width: 36.00
-Train RMSE: 18.00
-P10 (10th percentile): 143,467,974 bushels
-P90 (90th percentile): 215,201,960 bushels
-Uncertainty Interval: [143,467,974, 215,201,960] bushels
+ML Baseline (total): 250,308,162 bushels
+ML Pred (bushels): 250,308,162
+ML Band Width (bushels): 50,061,632
+Train RMSE (bushels): 25,030,816
+P10 (10th percentile): 200,246,529 bushels
+P90 (90th percentile): 300,369,794 bushels
+Uncertainty Interval: [200,246,529, 300,369,794] bushels
 
 RECENT PRODUCTION HISTORY
 --------------------------------------------------------------------------------
@@ -32,7 +31,7 @@ RECENT PRODUCTION HISTORY
 SYSTEM PROMPT (for Grok)
 ================================================================================
 
-You are a conservative adjustment module for county-level corn yield.
+You are a conservative adjustment module for county-level corn production.
 
 Your ONLY inputs are a structured "factsheet" with exogenous signals that the ML model does not capture well.
 
@@ -58,7 +57,7 @@ hail_event_flag, derecho_event_flag, localized_flood_flag.
 
 nass_planting_progress_pct, nass_harvest_progress_pct (weekly progress summaries).
 
-ML meta: ml_pred (bu/ac), ml_band_width (U−L), train_rmse.
+ML meta: ml_pred (bushels), ml_band_width (U−L in bushels), train_rmse (bushels).
 
 Forbidden: any soils, ethanol distance, recent yields, or windowed agronomic/drought/canopy variables. If such fields appear, ignore them.
 
@@ -84,9 +83,9 @@ For a SINGLE county:
 {
   "adj_raw": float,                  // in [-1, 1], before damping
   "adj": float,                      // after bounds & damping rule above
-  "pred_yield_bu_ac": float,         // = ml_pred * (1 + adj)
-  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj)
-  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj)
+  "pred_production_bu": float,       // = ml_pred * (1 + adj) in total bushels
+  "low_80": float,                   // = (ml_pred - 0.5*ml_band_width) * (1 + 0.7*adj) in bushels
+  "high_80": float,                  // = (ml_pred + 0.5*ml_band_width) * (1 + 0.7*adj) in bushels
   "drivers": [ "short phrase", ... ] // 3–5 concise drivers referencing ONLY allowed fields
 }
 
@@ -95,7 +94,7 @@ For MULTIPLE counties (differentiated by FIPS):
   "<fips_code>": {
     "adj_raw": float,
     "adj": float,
-    "pred_yield_bu_ac": float,
+    "pred_production_bu": float,
     "low_80": float,
     "high_80": float,
     "drivers": [ "short phrase", ... ]
@@ -107,7 +106,7 @@ For MULTIPLE counties (differentiated by FIPS):
 No chain-of-thought. Do not explain your reasoning; just fill the JSON.
 
 If required fields are missing (e.g., ml_pred, ml_band_width, train_rmse), return:
-{"adj_raw": 0.0, "adj": 0.0, "pred_yield_bu_ac": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
+{"adj_raw": 0.0, "adj": 0.0, "pred_production_bu": null, "low_80": null, "high_80": null, "drivers": ["insufficient_fields"]}
 
 FIPS codes should be strings (e.g., "27129" not 27129).
 
@@ -120,9 +119,9 @@ Analyze this corn production factsheet and provide a bounded adjustment to the M
 County FIPS: 27099
 
 ML Meta:
-- ml_pred (bu/ac): 180.00
-- ml_band_width (U−L): 36.00
-- train_rmse: 18.00
+- ml_pred (bushels): 250,308,162
+- ml_band_width (U−L in bushels): 50,061,632
+- train_rmse (bushels): 25,030,816
 
 Fact Sheet Information:
 2024 population: 40,900 people
@@ -1944,9 +1943,9 @@ INSTRUCTIONS
 3. Grok should return a JSON response with the required schema:
    - adj_raw: float in [-1, 1]
    - adj: float (after bounds & damping)
-   - pred_yield_bu_ac: float (= ml_pred * (1 + adj))
-   - low_80: float
-   - high_80: float
+   - pred_production_bu: float (= ml_pred * (1 + adj)) in total bushels
+   - low_80: float in bushels
+   - high_80: float in bushels
    - drivers: array of 3-5 short phrases
 4. The adjustment uses alpha=0.15 and damping based on ML confidence
 5. Only use allowed fields from fact sheet (economy, market, insurance, weather flags, NASS progress)
