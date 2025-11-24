@@ -182,6 +182,14 @@ if train_nan > 0 or test_nan > 0:
     
     # Impute numeric columns with median
     if len(numeric_cols) > 0:
+        # Pre-fill columns that are all NaN in training data to prevent Imputer from dropping them
+        all_nan_cols = [col for col in numeric_cols if X_train[col].isna().all()]
+        if all_nan_cols:
+            print(f"  Found {len(all_nan_cols)} all-NaN columns. Filling with 0 to prevent shape mismatch.")
+            for col in all_nan_cols:
+                X_train[col] = X_train[col].fillna(0)
+                X_test[col] = X_test[col].fillna(0)
+
         imputer = SimpleImputer(strategy='median')
         X_train_imputed_numeric = imputer.fit_transform(X_train[numeric_cols])
         X_test_imputed_numeric = imputer.transform(X_test[numeric_cols])
