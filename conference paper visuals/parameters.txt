@@ -1,0 +1,316 @@
+================================================================================
+EXACT MODEL PARAMETERS - CORN YIELD PREDICTION MODELS
+================================================================================
+
+Generated from: Model_Comparison_NoAcres.ipynb
+Dataset: consolidated_data_phase3_preprocessed.csv (excluding corn_acres_planted and yield_per_acre)
+Training Set: 2000-2019 (10,409 samples)
+Test Set: 2020-2022 (1,617 samples)
+Features: 64 engineered features
+Target: corn_production_bu (log-transformed: log1p)
+
+================================================================================
+MODEL 1: POLY REGRESSION (Low Complexity)
+================================================================================
+
+Preprocessing:
+- Scaler: RobustScaler
+- Polynomial Features: PolynomialFeatures(degree=2, include_bias=False, interaction_only=False)
+- Polynomial features created: 2144 features
+
+Ridge Regression:
+- alpha: 1.0 (tuned via GridSearchCV from [1.0, 10.0, 50.0, 100.0, 500.0, 1000.0])
+- max_iter: 3000
+- solver: 'auto'
+- GridSearchCV: cv=5, scoring='r2', n_jobs=-1
+
+Post-processing:
+- Bias correction factor: 1.0001 (median-based)
+- Quantile clipping: 1st-99th percentile of training data
+- Final clipping: q1_actual * 0.5 to q99_actual * 2.0
+
+================================================================================
+MODEL 2: SVM - SUPPORT VECTOR MACHINE (Low Complexity)
+================================================================================
+
+Training Configuration:
+- Training subset: 5,000 samples (randomly sampled from 10,409 training samples)
+- Reason: SVM scales poorly with large datasets (O(n²) memory complexity)
+
+Hyperparameters:
+- kernel: 'rbf'
+- C: 100
+- epsilon: 0.1
+- gamma: 'scale' (automatic: 1 / (n_features * X.var()))
+- max_iter: 10000
+
+Model: sklearn.svm.SVR
+
+================================================================================
+MODEL 3: RANDOM FOREST (Low Complexity)
+================================================================================
+
+Hyperparameters:
+- n_estimators: 200
+- max_depth: 12
+- min_samples_split: 10
+- min_samples_leaf: 4
+- max_features: 'sqrt'
+- bootstrap: True
+- oob_score: True
+- random_state: 42
+- n_jobs: -1
+
+Model: sklearn.ensemble.RandomForestRegressor
+
+================================================================================
+MODEL 4: XGBOOST (Medium Complexity)
+================================================================================
+
+Hyperparameters:
+- n_estimators: 300
+- max_depth: 4
+- learning_rate: 0.08
+- subsample: 0.85
+- colsample_bytree: 0.85
+- min_child_weight: 3
+- gamma: 0.1
+- reg_alpha: 0.05 (L1 regularization)
+- reg_lambda: 1.5 (L2 regularization)
+- random_state: 42
+- n_jobs: -1
+- verbosity: 0
+
+Training:
+- Early stopping: Enabled (if API supports)
+- eval_set: [(X_test, y_test)]
+- Evaluation metric: RMSE on log-transformed target
+
+Model: xgboost.XGBRegressor
+
+================================================================================
+MODEL 5: LIGHTGBM (Medium Complexity)
+================================================================================
+
+Hyperparameters:
+- n_estimators: 400
+- max_depth: 5
+- learning_rate: 0.06
+- num_leaves: 31
+- subsample: 0.85
+- colsample_bytree: 0.85
+- min_child_samples: 20
+- reg_alpha: 0.05 (L1 regularization)
+- reg_lambda: 1.5 (L2 regularization)
+- random_state: 42
+- n_jobs: -1
+- verbosity: -1
+
+Training:
+- Early stopping: patience=50 rounds
+- eval_set: [(X_test, y_test)]
+- Callbacks: EarlyStopping(stopping_rounds=50), LogEvaluation(period=0)
+
+Model: lightgbm.LGBMRegressor
+
+================================================================================
+MODEL 6: TABNET (High Complexity)
+================================================================================
+
+Architecture Hyperparameters:
+- n_d: 32 (dimension of decision embedding)
+- n_a: 32 (dimension of attention embedding)
+- n_steps: 6 (number of steps in encoder)
+- gamma: 1.3 (coefficient for feature reusage)
+- n_independent: 2 (number of independent Gated Linear Units per step)
+- n_shared: 2 (number of shared Gated Linear Units per step)
+- epsilon: 1e-15
+- seed: 42
+- lambda_sparse: 1e-3 (sparsity regularization)
+- mask_type: 'entmax'
+
+Optimizer:
+- optimizer_fn: torch.optim.Adam
+- optimizer_params: {'lr': 1.5e-2}
+
+Scheduler:
+- scheduler_fn: torch.optim.lr_scheduler.StepLR
+- scheduler_params: {'step_size': 15, 'gamma': 0.85}
+
+Training Configuration:
+- max_epochs: 150
+- patience: 25 (early stopping)
+- batch_size: 512
+- virtual_batch_size: 128
+- drop_last: False
+- compute_importance: False (disabled to avoid dtype issues)
+- eval_set: [(X_test_array, y_test_2d)]
+- eval_name: ['test']
+- eval_metric: ['rmse']
+
+Data Preprocessing:
+- Only numeric features selected (60 of 64 features)
+- Explicit conversion to float32
+- NaN values filled with 0
+- Target reshaped to (n_samples, 1) format
+
+Model: pytorch_tabnet.tab_model.TabNetRegressor
+
+================================================================================
+MODEL 7: LSTM (High Complexity)
+================================================================================
+
+Architecture:
+- Input shape: (1, 60 features) - each sample as single timestep
+- Layer 1: LSTM(128 units, return_sequences=True)
+- Dropout: 0.3
+- Layer 2: LSTM(64 units, return_sequences=False)
+- Dropout: 0.3
+- Layer 3: Dense(32 units, activation='relu')
+- BatchNormalization
+- Dropout: 0.2
+- Output: Dense(1 unit)
+
+Optimizer:
+- optimizer: keras.optimizers.Adam
+- learning_rate: 0.001
+
+Loss and Metrics:
+- loss: 'mse' (Mean Squared Error)
+- metrics: ['mae'] (Mean Absolute Error)
+
+Training Configuration:
+- epochs: 100
+- batch_size: 256
+- validation_data: (X_test_seq, y_test_seq)
+- verbose: 1
+
+Callbacks:
+- EarlyStopping:
+  * monitor: 'val_loss'
+  * patience: 15
+  * restore_best_weights: True
+  * verbose: 1
+- ReduceLROnPlateau:
+  * monitor: 'val_loss'
+  * factor: 0.5
+  * patience: 5
+  * min_lr: 1e-6
+  * verbose: 1
+
+Data Preprocessing:
+- Sequence length: 1 (each sample is a single timestep)
+- Reshape: (samples, timesteps=1, features)
+- Data type: float32
+
+Model: tensorflow.keras.Sequential
+
+================================================================================
+MODEL 8: TCN - TEMPORAL CONVOLUTIONAL NETWORK (High Complexity)
+================================================================================
+
+Architecture:
+- Input shape: (1, 60 features) - flattened to use all features
+- Layer 1: Dense(512 units)
+  * activation: Swish (x * sigmoid(x))
+  * kernel_regularizer: L2(0.001)
+  * kernel_initializer: 'he_normal'
+  * BatchNormalization
+  * Dropout: 0.4
+- Layer 2: Dense(256 units)
+  * activation: Swish
+  * kernel_regularizer: L2(0.001)
+  * kernel_initializer: 'he_normal'
+  * BatchNormalization
+  * Dropout: 0.4
+- Layer 3: Dense(128 units)
+  * activation: Swish
+  * kernel_regularizer: L2(0.001)
+  * kernel_initializer: 'he_normal'
+  * BatchNormalization
+  * Dropout: 0.3
+- Layer 4: Dense(64 units)
+  * activation: Swish
+  * kernel_regularizer: L2(0.001)
+  * kernel_initializer: 'he_normal'
+  * BatchNormalization
+  * Dropout: 0.2
+- Layer 5: Dense(32 units)
+  * activation: Swish
+  * kernel_regularizer: L2(0.0005)
+  * kernel_initializer: 'he_normal'
+  * BatchNormalization
+  * Dropout: 0.15
+- Output: Dense(1 unit)
+  * kernel_initializer: 'glorot_uniform'
+
+Optimizer:
+- Primary: keras.optimizers.AdamW
+  * learning_rate: 0.001
+  * weight_decay: 0.0001
+- Fallback: keras.optimizers.Adam (if AdamW not available)
+  * learning_rate: 0.001
+  * beta_1: 0.9
+  * beta_2: 0.999
+
+Loss and Metrics:
+- loss: 'mse' (Mean Squared Error)
+- metrics: ['mae'] (Mean Absolute Error)
+
+Training Configuration:
+- epochs: 150
+- batch_size: 256
+- validation_data: (X_test_tcn, y_test_tcn)
+- verbose: 1
+
+Callbacks:
+- EarlyStopping:
+  * monitor: 'val_loss'
+  * patience: 20
+  * restore_best_weights: True
+  * verbose: 1
+  * min_delta: 0.0001
+- ReduceLROnPlateau:
+  * monitor: 'val_loss'
+  * factor: 0.5
+  * patience: 7
+  * min_lr: 1e-7
+  * verbose: 1
+- LearningRateScheduler (Cosine Decay):
+  * Warmup epochs: 10
+  * Total epochs: 150
+  * Cosine decay schedule after warmup
+  * Minimum learning rate: 1e-7
+
+Data Preprocessing:
+- Reshape: (samples, sequence_length=1, features)
+- Data type: float32
+- NaN values filled with 0
+
+Model: tensorflow.keras.Model (Functional API)
+
+================================================================================
+COMMON PREPROCESSING FOR ALL MODELS
+================================================================================
+
+Target Transformation:
+- Original scale: corn_production_bu (bushels)
+- Log transformation: log1p(y) = log(1 + y)
+- Inverse transformation: expm1(y_pred_log) = exp(y_pred_log) - 1
+
+Feature Scaling:
+- Poly Regression: RobustScaler (before polynomial transformation)
+- Other models: No explicit scaling (tree-based models handle this internally)
+
+Data Split:
+- Temporal split: Train on 2000-2019, Test on 2020-2022
+- No random shuffling (preserves temporal structure)
+
+Feature Exclusion:
+- Excluded: corn_acres_planted, yield_per_acre (to prevent data leakage)
+- Total features: 64 (after exclusion)
+
+================================================================================
+END OF PARAMETERS
+================================================================================
+
