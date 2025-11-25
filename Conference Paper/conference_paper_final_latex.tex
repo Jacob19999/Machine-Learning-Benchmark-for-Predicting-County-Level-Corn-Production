@@ -35,7 +35,7 @@ The performed feature importance analysis revealed that economic proxies (fuel c
 
 \section{Introduction}
 
-In Minnesota, the agriculture sector is anchored by corn production, generating over \$8 billion in annual cash receipts, contributing approximately 6\% to the state's GDP through direct and indirect effects (including \$5.2 billion from the ethanol industry alone in 2024), and supporting nearly 47,500 jobs with \$2.65 billion in wages as of 2023 \cite{usda_ers}. This vital industry faces heightened vulnerability to Midwest-specific climate events, such as increasingly frequent and intense droughts (with some degree occurring nearly every year, including the severe 2021 event) and seasonal flooding from heavy rains, which disrupt planting, harvests, and overall yields amid broader climate change impacts like altered growing zones and extreme weather patterns.
+In Minnesota, the agriculture sector is anchored by corn production, generating over \$8 billion in annual cash receipts, contributing approximately 6\% to the state's GDP through direct and indirect effects (including \$5.2 billion from the ethanol industry alone in 2024), and supporting nearly 47,500 jobs with \$2.65 billion in wages as of 2023 \cite{usda_ers}. This vital industry faces heightened vulnerability to Midwest-specific climate events, such as increasingly frequent and intense droughts (with some degree occurring nearly every year, including the severe 2021 event) and seasonal flooding from heavy rains, which disrupt planting, harvests, and overall yields amid broader climate change impacts like altered growing zones and extreme weather patterns \cite{rodell2004}.
 
 Traditional prediction methods typically rely on historical production records; however, these often fail to factor in geospatial factors such as Normalized Difference Vegetation Index (NDVI), Land Surface Temperature (LST), climate, and economic factors which directly influence production. Direct measurements of soil macronutrients (e.g., N, P, K) and micronutrients (e.g., Fe, Zn) are challenging due to the large scale and need for manual ground sampling \cite{kayad2019, ji2022}.
 
@@ -127,7 +127,29 @@ Feature engineering created 64 informative features across multiple categories. 
 A temporal train-test split prevents data leakage: training set encompasses years 2000-2019 (10,409 samples), test set covers years 2020-2022 (1,617 samples). All preprocessing steps requiring fitting (scaling, encoding) are performed only on training data.
 
 \subsection{Models}
-We evaluated eight ML algorithms across complexity levels. Polynomial Regression employed degree-2 polynomial features with interaction-only mode and Ridge regularization ($\alpha = 1.0$). Support Vector Machine (SVM) used an RBF kernel and was trained on 5,000 samples due to computational constraints ($C=100, \epsilon=0.1$). The Random Forest model employed 200 decision trees with bootstrap aggregation ($max\_depth=12$). XGBoost and LightGBM utilized gradient boosting with sequential error correction; LightGBM's leaf-wise growth and histogram-based algorithm enable deeper trees and faster training (400 estimators for LightGBM vs 300 for XGBoost) \cite{chen2016, ke2017}. TabNet employed attention mechanisms for tabular data with sparse feature selection \cite{arik2021}. LSTM and TCN utilize deep learning architectures, though their sequential assumptions limit effectiveness for this tabular regression task \cite{bai2018}. Hyperparameters were adjusted using a mix of grid and random search with early stopping.
+We evaluated eight ML algorithms across complexity levels, ranging from linear baselines to tree-based ensembles and deep learning architectures. All models were tuned using a mix of grid and random search with early stopping where applicable. Table \ref{tab:model_summary_main} summarizes the key configurations for each algorithm.
+
+\begin{table}[htb]
+\centering
+\caption{Overview of Key Model Configurations}
+\label{tab:model_summary_main}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{l l}
+\toprule
+\textbf{Model} & \textbf{Key Settings} \\
+\midrule
+Poly Regression & Degree-2 Poly Features, Ridge ($\alpha=1.0$) \\
+SVM (SVR) & RBF kernel, $C=100$, $\epsilon=0.1$ (5k subset) \\
+Random Forest & 200 trees, $max\_depth=12$, bootstrap \\
+XGBoost & 300 estimators, learning rate $0.08$ \\
+LightGBM & 400 estimators, learning rate $0.06$ \\
+TabNet & Attentive Transformer, $n\_steps=6$ \\
+LSTM & 2 layers (128/64 units), Dropout 0.3 \\
+TCN & 5-layer dense surrogate, Swish activation \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
 
 \subsection{Evaluation}
 Model performance is evaluated on the test set (years 2020-2022) using metrics computed on the original scale (after inverse log transformation): $R^2$ score (coefficient of determination), root mean squared error (RMSE) in bushels, mean absolute error (MAE) in bushels, and mean absolute percentage error (MAPE). All reported results in this paper are for the configuration WITHOUT acres planted as an input feature.
@@ -257,7 +279,7 @@ We used AI-assisted tools for language editing and minor code boilerplate; all r
 \section{Model Hyperparameters}
 \label{sec:appendix_hparams}
 
-Table \ref{tab:model_hparams} summarizes the principal hyperparameters for each benchmarked algorithm.
+Table \ref{tab:model_hparams} provides a detailed summary of the principal hyperparameters selected for each benchmarked algorithm, outlining the specific architectural configurations, regularization strength settings, and optimization parameters derived from our hyperparameter tuning process.
 
 \FloatBarrier
 
@@ -274,8 +296,6 @@ Table \ref{tab:model_hparams} summarizes the principal hyperparameters for each 
 \bibitem{sentinel2025} European Space Agency. (2025). Copernicus: Sentinel-1.
 
 \bibitem{ji2022} Ji, Z., Pan, Y., Zhu, X., Wang, J., \& Li, Q. (2022). Prediction of corn yield in the USA corn belt using satellite data and machine learning: From an evapotranspiration perspective. \textit{Agriculture}, 12(8), Article 1263.
-
-\bibitem{karachristos2024} Karachristos, K., Rizos, G., \& Kalaitzis, P. (2024). A review on PolSAR decompositions for feature extraction. \textit{Journal of Imaging}, 10(3), Article 70.
 
 \bibitem{kayad2019} Kayad, A., Sozzi, M., Gatto, S., Whelan, B., Pirotti, F., \& Marinello, F. (2019). Monitoring within-field variability of corn yield using sentinel-2 and machine learning techniques. \textit{Remote Sensing}, 11(23), Article 2873.
 
@@ -300,8 +320,6 @@ Table \ref{tab:model_hparams} summarizes the principal hyperparameters for each 
 \bibitem{usda_nass} U.S. Department of Agriculture, National Agricultural Statistics Service. (n.d.). Quick Stats.
 
 \bibitem{usda_eia} U.S. Energy Information Administration. (n.d.). Petroleum \& Other Liquids.
-
-\bibitem{vieira2023} Vieira, R. A., Mendes, L. L., \& Silva, A. B. (2023). Global corn area from 1960 to 2030: Patterns, trends, and implications. \textit{Journal of Agricultural Science}, 161(2), 123--145.
 
 \end{thebibliography}
 
