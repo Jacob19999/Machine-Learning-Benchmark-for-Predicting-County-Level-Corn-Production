@@ -76,42 +76,100 @@ Eight machine learning algorithms were systematically evaluated across different
 cis631_research_project/
 │
 ├── Data/                          # Raw data files
-│   ├── corn_harvest_planted_2000-2023.csv
-│   ├── diesel_price.csv
-│   ├── enonomy_mn.csv
-│   ├── ethanol_dist.csv
-│   ├── gldas_all_bands_data.csv
-│   └── PRISM_percipitation_data.csv
+│   ├── 0_consolidated_all_data.csv
+│   ├── 1_diesel_price.csv
+│   ├── 2_enonomy_mn.csv
+│   ├── 3_ethanol_dist.csv
+│   ├── 4_gldas_all_bands_data.csv
+│   ├── 5_corn_harvest_planted_2000-2023.csv
+│   ├── 6_prism_.csv
+│   ├── 7_mn labour.csv
+│   └── Misc/                      # Processed data and outputs
+│       ├── consolidated_data_phase3.csv
+│       ├── consolidated_data_phase3_preprocessed.csv
+│       ├── X_train.csv, X_test.csv
+│       ├── y_train.csv, y_test.csv
+│       ├── model_comparison_results.csv
+│       ├── xgboost_feature_importances.csv
+│       └── [other processed data files]
 │
-├── Research Paper/              # Complete research paper and documentation
-│   ├── Complete_Research_Paper.tex  # Main LaTeX research paper
-│   ├── best practice Latex.md   # LaTeX formatting guidelines
-│   └── Visuals/                # Research paper visualizations
-│       ├── EDA_*.png           # Exploratory data analysis figures
+├── Notebook and Python Files/     # Code and notebooks
+│   ├── Python Scripts/            # Main Python scripts
+│   │   ├── consolidate_data_phase3.py
+│   │   ├── preprocess_phase3_data.py
+│   │   ├── model_benchmarking.py
+│   │   ├── feature_importance_analysis.py
+│   │   ├── compare_ml_vs_hybrid.py
+│   │   └── [other utility scripts]
+│   │
+│   ├── Notebook/                  # Jupyter notebooks
+│   │   ├── EDA_Phase3_Comprehensive.ipynb
+│   │   ├── Model_Comparison.ipynb
+│   │   ├── Model_Comparison_NoAcres.ipynb
+│   │   └── SatelliteData.ipynb
+│   │
+│   ├── Hybrid Model/              # Hybrid ML-LLM model implementation
+│   │   ├── hybrid_model.py
+│   │   ├── hybrid_aggregation.py
+│   │   ├── llm_track.py
+│   │   ├── predict_top_county.py
+│   │   ├── example_usage.py
+│   │   ├── requirements.txt
+│   │   ├── README.md
+│   │   ├── Fact Sheet/            # County fact sheets (PDFs)
+│   │   ├── Prompt/                # LLM prompt templates
+│   │   └── [JSON responses and outputs]
+│   │
+│   ├── Model Files/               # Trained model artifacts
+│   │   ├── xgboost_best_model.pkl
+│   │   ├── robust_scaler_phase3.pkl
+│   │   ├── cnn_corn_yield_model.keras
+│   │   └── tcn_corn_yield_model.keras
+│   │
+│   └── Minnesota Shp Files/       # Geographic shapefiles
+│       └── [Minnesota county boundary files]
+│
+├── Research Paper/                # Complete research paper
+│   ├── Complete_Research_Paper.txt
+│   ├── Complete_Research_Paper_Words.txt
+│   ├── Research paper Phase 3 Final.pdf
+│   ├── Phase 3 Data Methdology and model results only.pdf
+│   ├── Phase 3 Intro Section business case .pdf
+│   ├── best practice Latex.md
+│   └── Visuals/                   # Research paper visualizations
+│       ├── EDA_*.png              # Exploratory data analysis
 │       ├── model_comparison_*.png
 │       ├── Feature Importance*.png
 │       └── xgboost_finetuning_analysis.png
 │
-├── Paper/                       # Legacy documentation
-│   └── Phase 3.docx            # Methodology document
+├── Conference Paper/              # Conference paper version
+│   ├── Final Paper/               # Final conference paper
+│   │   ├── From Satellite To Silos Final.tex
+│   │   ├── From Satellite To Silos Final.pdf
+│   │   └── [other formats]
+│   ├── From Satellite To Silos.docx
+│   ├── From Satellite to Silos.pdf
+│   ├── best practice Latex.md
+│   ├── diagram_flow.png
+│   ├── Overview diagram.svg
+│   └── Visuals/                   # Conference paper visuals
+│       ├── model_comparison_*.png
+│       ├── model_scatter_*.png
+│       └── lightgbm_top15_feature_importance.png
 │
-├── consolidate_data_phase3.py   # Data consolidation script
-├── preprocess_phase3_data.py    # Data preprocessing script
-├── model_benchmarking.py        # Model comparison script
+├── Outputs/                       # Generated visualizations and outputs
+│   ├── conference paper visuals/  # Conference-specific visuals
+│   ├── model_comparison_*.png     # Model performance comparisons
+│   ├── model_scatter_*.png        # Prediction scatter plots
+│   ├── feature_importance_comparison.png
+│   ├── ml_vs_hybrid_comparison.png
+│   └── visualizations.pdf
 │
-├── *.ipynb                       # Jupyter notebooks
-│   ├── EDA_Phase3_Comprehensive.ipynb
-│   ├── Model_Comparison.ipynb
-│   └── SatelliteDataNew.ipynb
-│
-├── consolidated_data_phase3.csv  # Consolidated dataset (output)
-├── X_train.csv, X_test.csv      # Preprocessed features
-├── y_train.csv, y_test.csv      # Preprocessed targets
-│
-└── model outputs/
-    ├── xgboost_best_model.pkl
-    ├── model_comparison_results.csv
-    └── xgboost_feature_importances.csv
+├── Research_Paper.md              # Research documentation
+├── Research_Insights.md           # Analysis insights
+├── consolidation_summary.txt      # Data consolidation report
+├── Model Desc.txt                 # Model descriptions
+└── README.md                      # This file
 ```
 
 ## 🚀 Getting Started
@@ -144,18 +202,19 @@ torch >= 2.0.0  # Optional, for TCN model
 
 3. **Verify data files are present**:
    - All CSV files should be in the `Data/` directory
-   - Base dataset: `combined_gldas_corn_data.csv` should exist
+   - Base dataset: `Data/0_consolidated_all_data.csv` should exist
 
 ### Usage
 
 #### Step 1: Data Consolidation
 Consolidate all data sources into a unified dataset:
 ```bash
+cd "Notebook and Python Files/Python Scripts"
 python consolidate_data_phase3.py
 ```
 This will create:
-- `consolidated_data_phase3.csv` - Combined dataset
-- `consolidation_summary.txt` - Summary report
+- `Data/Misc/consolidated_data_phase3.csv` - Combined dataset
+- `consolidation_summary.txt` - Summary report (in project root)
 
 **Features:**
 - Automatically checks for missing libraries
@@ -166,12 +225,14 @@ This will create:
 #### Step 2: Data Preprocessing (Optional)
 Preprocess the consolidated data:
 ```bash
+cd "Notebook and Python Files/Python Scripts"
 python preprocess_phase3_data.py
 ```
 
 #### Step 3: Model Benchmarking
 Compare all models with hyperparameter tuning:
 ```bash
+cd "Notebook and Python Files/Python Scripts"
 python model_benchmarking.py
 ```
 
@@ -184,8 +245,8 @@ python model_benchmarking.py
 #### Step 4: XGBoost Fine-Tuning (Optional)
 Run comprehensive XGBoost hyperparameter optimization:
 ```python
-# Run in Jupyter notebook or Python script
-# See SatelliteDataNew.ipynb for details
+# Run in Jupyter notebook
+# See Notebook and Python Files/Notebook/SatelliteData.ipynb for details
 ```
 
 The fine-tuning process includes:
@@ -359,7 +420,7 @@ Data leakage occurs when information from the future or test set inadvertently i
 - ✅ **Separate Scalers**: Each preprocessing step fit on training only
 - ✅ **No Test Statistics**: Test set never used to compute normalization parameters
 
-#### Model Training Phase (`model_benchmarking.py`, `SatelliteDataNew.ipynb`)
+#### Model Training Phase (`model_benchmarking.py`, `SatelliteData.ipynb`)
 - ✅ **Strict Temporal Split**: 
   - Training: Years 2000-2019
   - Testing: Years 2020-2022
@@ -436,18 +497,20 @@ If you see these, data leakage may be present:
 ## 📊 Outputs
 
 ### Generated Files
-- `consolidated_data_phase3.csv` - Final consolidated dataset
-- `model_comparison_results.csv` - Model performance comparison
-- `xgboost_best_model.pkl` - Trained XGBoost model
-- `xgboost_feature_importances.csv` - Feature importance rankings
-- `model_benchmark_comparison.png` - Comprehensive visualization (if visualization code is run)
+- `Data/Misc/consolidated_data_phase3.csv` - Final consolidated dataset
+- `Data/Misc/model_comparison_results.csv` - Model performance comparison
+- `Notebook and Python Files/Model Files/xgboost_best_model.pkl` - Trained XGBoost model
+- `Data/Misc/xgboost_feature_importances.csv` - Feature importance rankings
+- `Outputs/` - All visualization outputs
 
 ### Visualizations
+All visualizations are saved in the `Outputs/` directory:
 - Model performance comparisons (bar charts, scatter plots)
 - Feature importance plots
 - Residual analysis
 - Prediction vs actual scatter plots
 - Training time comparisons
+- Conference paper specific visuals in `Outputs/conference paper visuals/`
 
 ## 🔬 Research Context
 
@@ -467,12 +530,13 @@ This project represents a comprehensive benchmark study comparing eight machine 
 - **Optimal Complexity**: Medium-complexity gradient boosting provides best balance of performance and efficiency
 
 ### Research Paper
-A complete research paper is available in `Research Paper/Complete_Research_Paper.tex` following IMRaD structure:
+A complete research paper is available in `Research Paper/` following IMRaD structure:
 - Introduction and Literature Review
 - Data Sources and Methodology
 - Results and Model Comparison
 - Discussion and Conclusions
 - Complete Bibliography (APA style)
+- **Files**: `Complete_Research_Paper.txt`, `Research paper Phase 3 Final.pdf`
 
 ## ⚠️ Important Notes
 
@@ -489,14 +553,14 @@ A complete research paper is available in `Research Paper/Complete_Research_Pape
 
 ### Data Requirements
 - Ensure all CSV files are in the `Data/` directory
-- Base dataset (`combined_gldas_corn_data.csv`) should be present
+- Base dataset (`Data/0_consolidated_all_data.csv`) should be present
 - Scripts check for file existence and provide helpful error messages
 
 ## 🤝 Contributing
 
 This is a research project. For questions or issues:
-1. Check the consolidation summary report
-2. Review the methodology document (Paper/Phase 3.docx)
+1. Check the consolidation summary report (`consolidation_summary.txt`)
+2. Review the research paper (`Research Paper/Research paper Phase 3 Final.pdf`)
 3. Examine notebook outputs for detailed error messages
 
 ## 📄 License
@@ -518,7 +582,7 @@ Research project - See paper documentation for details.
 - **TCN**: Bai et al. (2018) - Empirical Evaluation of Generic Convolutional and Recurrent Networks
 
 ### Complete Bibliography
-See `Research Paper/Complete_Research_Paper.tex` for full reference list (17 references, APA style).
+See `Research Paper/Complete_Research_Paper.txt` for full reference list (17 references, APA style).
 
 ## 👥 Authors
 
@@ -529,20 +593,24 @@ See `Research Paper/Complete_Research_Paper.tex` for full reference list (17 ref
 
 ## 📄 Research Paper
 
-The complete research paper is available in LaTeX format:
-- **Location**: `Research Paper/Complete_Research_Paper.tex`
+The complete research paper is available in multiple formats:
+- **Location**: `Research Paper/`
+- **Files**: 
+  - `Complete_Research_Paper.txt` - Text version
+  - `Research paper Phase 3 Final.pdf` - Final PDF version
+  - `Phase 3 Data Methdology and model results only.pdf` - Methodology section
 - **Structure**: IMRaD format (Introduction, Methods, Results, Discussion)
 - **Length**: ~40 pages (two-column format)
-- **Visuals**: 15 main-body figures + 7 appendix figures
+- **Visuals**: 15 main-body figures + 7 appendix figures (in `Research Paper/Visuals/`)
 - **References**: 17 references in APA style
 
 ## 📧 Contact
 
 For questions about methodology or data sources, refer to:
-- `Research Paper/Complete_Research_Paper.tex` - Complete research paper
+- `Research Paper/Research paper Phase 3 Final.pdf` - Complete research paper
 - `Research_Paper.md` - Detailed research documentation
 - `Research_Insights.md` - Analysis insights
-- `Paper/Phase 3.docx` - Methodology document
+- `Conference Paper/Final Paper/` - Conference paper version
 
 ---
 
