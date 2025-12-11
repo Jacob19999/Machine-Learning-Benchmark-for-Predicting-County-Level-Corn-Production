@@ -484,16 +484,6 @@ Proper data leakage prevention ensures:
 - **Production Readiness**: Models that perform well on test set will perform similarly in production
 - **Scientific Validity**: Research findings are credible and reproducible
 
-### Warning Signs to Watch For
-
-If you see these, data leakage may be present:
-- ⚠️ Test performance suspiciously high (R² > 0.99) without obvious reason
-- ⚠️ Test performance significantly better than cross-validation scores
-- ⚠️ Preprocessing fit on entire dataset before splitting
-- ⚠️ Features derived from target variable
-- ⚠️ Future data used to predict past values
-- ⚠️ Same scaler/transformer fit on train+test combined
-
 ## 📊 Outputs
 
 ### Generated Files
@@ -590,19 +580,6 @@ See `Research Paper/Complete_Research_Paper.txt` for full reference list (17 ref
 - Emma Wele
 - Victor C
 - Onishi Rei
-
-## 📄 Research Paper
-
-The complete research paper is available in multiple formats:
-- **Location**: `Research Paper/`
-- **Files**: 
-  - `Complete_Research_Paper.txt` - Text version
-  - `Research paper Phase 3 Final.pdf` - Final PDF version
-  - `Phase 3 Data Methdology and model results only.pdf` - Methodology section
-- **Structure**: IMRaD format (Introduction, Methods, Results, Discussion)
-- **Length**: ~40 pages (two-column format)
-- **Visuals**: 15 main-body figures + 7 appendix figures (in `Research Paper/Visuals/`)
-- **References**: 17 references in APA style
 
 ## 📧 Contact
 
