@@ -1,0 +1,82 @@
+PHASE 3 PREPROCESSED DATASET - FEATURE LIST
+================================================================================
+
+Total Features: 66
+Total Samples: 12026
+
+Features:
+    1. Albedo_inst
+    2. AvgSurfT_inst
+    3. CanopInt_inst
+    4. ECanop_tavg
+    5. ESoil_tavg
+    6. Evap_tavg
+    7. LWdown_f_tavg
+    8. Lwnet_tavg
+    9. PotEvap_tavg
+   10. Psurf_f_inst
+   11. Qair_f_inst
+   12. Qg_tavg
+   13. Qh_tavg
+   14. Qle_tavg
+   15. Qs_acc
+   16. Qsb_acc
+   17. Qsm_acc
+   18. Rainf_f_tavg
+   19. Rainf_tavg
+   20. RootMoist_inst
+   21. SWE_inst
+   22. SWdown_f_tavg
+   23. SnowDepth_inst
+   24. Snowf_tavg
+   25. SoilMoi0_10cm_inst
+   26. SoilMoi100_200cm_inst
+   27. SoilMoi10_40cm_inst
+   28. SoilMoi40_100cm_inst
+   29. SoilTMP0_10cm_inst
+   30. SoilTMP100_200cm_inst
+   31. SoilTMP10_40cm_inst
+   32. SoilTMP40_100cm_inst
+   33. Swnet_tavg
+   34. Tair_f_inst
+   35. Tveg_tavg
+   36. Wind_f_inst
+   37. corn_acres_planted
+   38. diesel_usd_gal
+   39. income_farmrelated_receipts_total_usd
+   40. govt_programs_federal_receipts_usd
+   41. income_farmrelated_receipts_per_operation_usd
+   42. dist_km_ethanol
+   43. prism_ppt_in
+   44. prism_tmin_degf
+   45. prism_tmean_degf
+   46. prism_tmax_degf
+   47. prism_tdmean_degf
+   48. prism_vpdmin_hpa
+   49. prism_vpdmax_hpa
+   50. year_trend
+   51. month_sin
+   52. month_cos
+   53. soil_moisture_avg
+   54. soil_moisture_gradient
+   55. temperature_avg
+   56. temperature_range
+   57. precipitation_evap_balance
+   58. precipitation_efficiency
+   59. yield_per_acre
+   60. fuel_cost_proxy
+   61. total_revenue_sources
+   62. revenue_per_bushel
+   63. ethanol_dist_Very Close
+   64. ethanol_dist_Close
+   65. ethanol_dist_Medium
+   66. ethanol_dist_Far
+
+================================================================================
+ID Columns:
+  - fips
+  - county_name
+  - year
+  - month
+
+Target Column: corn_production_bu

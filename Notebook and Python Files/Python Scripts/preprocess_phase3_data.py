@@ -12,10 +12,14 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from sklearn.preprocessing import StandardScaler, RobustScaler
+# Scaling done in notebook after temporal split to avoid leakage
 from sklearn.decomposition import PCA
 import warnings
 warnings.filterwarnings('ignore')
+
+# Data/Misc under project root (script lives in Notebook and Python Files/Python Scripts)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+DATA_DIR = PROJECT_ROOT / "Data" / "Misc"
 
 print("="*80)
 print("PHASE 3 DATA PREPROCESSING AND FEATURE ENGINEERING")
@@ -25,7 +29,7 @@ print("="*80)
 # 1. LOAD AND INITIAL ANALYSIS
 # ============================================================================
 print("\n[1/7] Loading consolidated Phase 3 dataset...")
-df = pd.read_csv("consolidated_data_phase3.csv")
+df = pd.read_csv(DATA_DIR / "consolidated_data_phase3.csv")
 print(f"  [OK] Loaded dataset: {df.shape[0]} rows, {df.shape[1]} columns")
 
 print("\n" + "="*80)
@@ -249,12 +253,9 @@ if 'corn_acres_planted' in feature_cols and 'corn_production_bu' in df_features.
     feature_cols.append('yield_per_acre')
 
 if 'diesel_usd_gal' in feature_cols:
-    # Create interaction with planted acres (fuel cost proxy)
-    if 'corn_acres_planted' in feature_cols:
-        df_features['fuel_cost_proxy'] = (
-            df_features['diesel_usd_gal'] * df_features['corn_acres_planted']
-        )
-        feature_cols.append('fuel_cost_proxy')
+    # Fuel cost proxy: diesel price only (no acres) to avoid leakage when predicting without acres planted
+    df_features['fuel_cost_proxy'] = df_features['diesel_usd_gal'].copy()
+    feature_cols.append('fuel_cost_proxy')
 
 print("  [OK] Creating economic interaction features...")
 if 'income_farmrelated_receipts_total_usd' in feature_cols and 'govt_programs_federal_receipts_usd' in feature_cols:
@@ -290,31 +291,12 @@ if 'dist_km_ethanol' in feature_cols:
 print(f"  [OK] Total features after engineering: {len(feature_cols)}")
 
 # ============================================================================
-# 6. SCALING STRATEGIES
+# 6. SCALING (DEFERRED TO NOTEBOOK)
 # ============================================================================
-print("\n[6/7] Scaling features...")
-
-# Separate numeric features for scaling
-numeric_features = [col for col in feature_cols if df_features[col].dtype in [np.float64, np.int64]]
-
-print(f"  Features to scale: {len(numeric_features)}")
-
-# Use RobustScaler (handles outliers better than StandardScaler)
-scaler = RobustScaler()
-
-print("  [OK] Fitting RobustScaler (robust to outliers)...")
-scaler.fit(df_features[numeric_features])
-
-print("  [OK] Transforming features...")
-df_features[numeric_features] = scaler.transform(df_features[numeric_features])
-
-print("  [OK] Scaling complete")
-
-# Save scaler for later use
-import pickle
-with open('robust_scaler_phase3.pkl', 'wb') as f:
-    pickle.dump(scaler, f)
-print("  [OK] Saved scaler to robust_scaler_phase3.pkl")
+# Do NOT scale here: fitting scaler on full data leaks test-year statistics into
+# train when notebook does temporal split. Notebook fits scaler on train only
+# after split for models that need scaling (Poly, SVM). Tree models use raw.
+print("\n[6/7] Skipping scaling (saved dataset is unscaled; scale after temporal split in notebook).")
 
 # ============================================================================
 # 7. FINAL DATASET PREPARATION
@@ -355,13 +337,13 @@ print("\n" + "="*80)
 print("SAVING RESULTS")
 print("="*80)
 
-output_file = "consolidated_data_phase3_preprocessed.csv"
+output_file = DATA_DIR / "consolidated_data_phase3_preprocessed.csv"
 df_final.to_csv(output_file, index=False)
 print(f"[OK] Saved preprocessed dataset to: {output_file}")
-print(f"  File size: {Path(output_file).stat().st_size / (1024*1024):.2f} MB")
+print(f"  File size: {output_file.stat().st_size / (1024*1024):.2f} MB")
 
 # Save feature list
-with open('phase3_feature_list.txt', 'w') as f:
+with open(DATA_DIR / 'phase3_feature_list.txt', 'w') as f:
     f.write("PHASE 3 PREPROCESSED DATASET - FEATURE LIST\n")
     f.write("="*80 + "\n\n")
     f.write(f"Total Features: {len(feature_cols)}\n")
@@ -375,7 +357,7 @@ with open('phase3_feature_list.txt', 'w') as f:
         f.write(f"  - {col}\n")
     f.write(f"\nTarget Column: {TARGET_COL}\n")
 
-print("[OK] Saved feature list to: phase3_feature_list.txt")
+print(f"[OK] Saved feature list to: {DATA_DIR / 'phase3_feature_list.txt'}")
 
 # Summary statistics
 print("\n" + "="*80)

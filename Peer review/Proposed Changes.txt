@@ -1,0 +1,197 @@
+Reviewer comment (Page 2, Section II Background and Related Works)
+---------------------------------------------------------------
+Authors claim novelty in integrating multiple data sources at the county level in Minnesota and in evaluating predictive performance without using planted acreage. However, the manuscript does not sufficiently compare the proposed approach against prior studies to demonstrate not only conceptual novelty but also measurable performance improvement. A more explicit comparison with existing methods is required.
+
+
+Where this change applies (source location)
+------------------------------------------
+Paper source: `Conference Paper/Final Paper/From Satellite To Silos Final.tex`
+Section: BACKGROUND AND RELATED WORKS
+Insertion point: END of Section II (immediately after the current last sentence and BEFORE the METHODOLOGY section)
+
+Current ending text of Section II (for reference)
+------------------------------------------------
+"Many of the prior studies rely on single algorithms or similar comparisons rather than comprehensive benchmarks."
+
+
+Proposed change (ready-to-paste insertion at end of Section II)
+--------------------------------------------------------------
+To make the comparison to prior work explicit, we benchmark a set of canonical models that appear repeatedly in the remote sensing yield literature (SVR/SVM, Random Forest, LSTM/CNN-style deep models, and gradient boosting such as XGBoost/LightGBM) on a single unified Minnesota county-year dataset constructed from GLDAS+PRISM plus economic and infrastructure indicators. This yields an apples-to-apples algorithmic comparison under a fixed feature set and evaluation protocol, rather than comparing one-off models across studies. In our experiments, the best-performing model (LightGBM) achieves R^2 = 0.973 with RMSE = 2,214,708 bushels while excluding acres planted, demonstrating that fused environmental and economic proxies can compensate when the dominant acreage feature is unavailable. Table 1 below summarizes how our fused county-level covariates differ from data used in representative prior studies. For context, related studies that rely primarily on remote sensing or management/weather variables report lower predictive agreement on their respective targets and scales (e.g., Ji et al. 2022 reports mean predicted R^2 = 0.63 and best mean predicted R^2 = 0.67 for Corn Belt yield using EVI/LAI/LST; Shahhosseini et al. 2021 reports about 77% explained spatio-temporal variance for county-level yield using an ensemble CNN–DNN; and Kayad et al. 2019 reports within-field Sentinel-2 monitoring R^2 up to ~0.6 using Random Forest). Because these works differ in target (yield vs total production), spatial unit (field vs county), and available covariates, we treat cross-paper metrics as contextual rather than a direct superiority claim; our primary comparison is the unified Minnesota benchmark across the above model families.
+
+
+Plain table to add in Section II (data-source comparison)
+--------------------------------------------------------
+Table 1. Comparison of data sources used in representative prior work versus this study.
+
+| Study (bib key)         | Target / scale        | Remote sensing / environmental inputs                 | Non-RS covariates (examples)                                     | Econ/infra? | Best reported performance (from the cited paper) |
+|-------------------------|-----------------------|--------------------------------------------------------|------------------------------------------------------------------|------------|-----------------------------------------------|
+| This work               | Production / county   | GLDAS + PRISM (soil moisture, temp, precip, etc.)      | NASS ag context + ERS income/receipts + EIA diesel + ethanol dist | YES        | R^2 = 0.973; RMSE = 2,214,708 bushels (no acres planted) |
+| Ji et al. 2022 (ji2022) | Yield / county        | MODIS indices: EVI + LAI + LST                         | None reported                                                     | No         | Best mean predicted R^2 = 0.67 (LSTM); mean R^2 = 0.63 |
+| Shahhosseini 2021 (shahhosseini2021) | Yield / county | Weather + soil (reanalysis/soil DB)                    | Planting progress + management proxies + historical yields        | No         | ~77% explained variance (≈R^2 0.77); RMSE 866 kg/ha (8.5% rRMSE) for 2019 |
+| You et al. 2017 (you2017_dgp)  | Yield / county (soybean) | MODIS remote sensing: surface reflectance + LST + land cover type | None reported beyond location/year (remote sensing only setup for baselines) | No | Best avg RMSE = 5.55 bu/acre (CNN+GP) for county-level soybean; reported ~30% RMSE reduction vs best competing methods; ~15% MAPE improvement vs USDA national estimates |
+| Khaki et al. 2019/2020 (khaki2019_cnn_rnn) | Yield / county | Daymet weather + gSSURGO soil (environmental + soil grids) | USDA NASS management/planting progress + historical yields | No | RMSE ≈ 9% (corn) and 8% (soybean) of respective average yields (Corn Belt; 2016–2018 validation) |
+| Desloires 2024 (desloires2024) | Yield / field     | Sentinel-2 biophysical + Landsat LST + ERA5            | Limited in-situ (e.g., irrigation/cultivar, location)             | No         | Not captured in this note (paper reports improved forecasting with thermal time + LST) |
+| Kayad 2019 (kayad2019)  | Yield / within-field  | Sentinel-2 vegetation indices                          | Yield monitor ground truth                                        | No         | Random Forest prediction R^2 ≈ 0.6; GNDVI monitoring R^2 = 0.48 |
+
+Note (for reviewer response / why these were added):
+- Added high-citation baselines widely used in yield prediction: You et al. 2017 (Deep GP + CNN/LSTM; OpenAlex cited_by_count ≈ 504) and Khaki et al. 2019/2020 (CNN-RNN; OpenAlex cited_by_count ≈ 520).
+
+
+Rationale (one-liner)
+--------------------
+This explicitly (1) maps our chosen baselines to models used in prior work, and (2) adds measurable performance context using reported metrics from papers already cited, while clearly stating the apples-to-oranges caveat.
+
+
+Reviewer comment (Page 2, Section III Corn Production Dataset Construction, Part A Environmental Data from GLDAS, Table 1)
+------------------------------------------------------------------------------------------------------------------------
+Table 1 indicates there are total 50 raw features and 14 engineered features. But in the text, authors state that a total
+of 64 engineered features are used. This inconsistency should be clarified, and the authors should explicitly explain how
+the final feature count is derived.
+
+
+Where this change applies (source location)
+------------------------------------------
+Paper source (as reviewed): `From Satellite To Silos Final w author.pdf`
+Section: `III. CORN PRODUCTION DATASET CONSTRUCTION` → `A. Environmental Data from GLDAS` (the paragraph that summarizes the
+final dataset size and references Table 1).
+
+Repo text that currently contains the inconsistent wording:
+- `Conference Paper/From Satellite To Silos extracted` (Abstract + end of Section III summary paragraph)
+
+
+Current problematic text (for reference)
+----------------------------------------
+Abstract (feature wording):
+- "The data from these sources were used to generate 64 essential features..."
+
+End of Section III summary (feature wording):
+- "... resulting in 12,026 samples with 64 engineered features (excluding acres planted)."
+
+
+Proposed change (ready-to-paste replacement wording)
+---------------------------------------------------
+Replace the “64 engineered features” wording with an explicit derivation that matches Table 1.
+
+Suggested replacement sentence for the end-of-section summary:
+- "Finally, we integrated all sources using FIPS codes and standardized name matching. The dataset spans 2000–2022 across
+87 Minnesota counties, yielding 12,026 county-year samples with 64 total input features (excluding acres planted),
+comprised of 50 source-derived (raw) features and 14 engineered/derived features. The engineered features
+are computed from the raw variables via temporal encodings, cross-depth soil-moisture summaries/gradients, PCA components
+from temperature variables, precipitation–evapotranspiration balance/efficiency metrics, and ethanol-distance one-hot
+categories. Table 1 summarizes the full feature inventory and data sources."
+
+Suggested clarification for the Abstract (to keep terminology consistent):
+- "The data from these sources were used to generate 64 total features (50 raw + 14 engineered),
+which were used to train and evaluate eight ML algorithms..."
+
+Suggested Table 1 tweak (optional but makes the reviewer concern disappear instantly):
+- Add a final row or footnote: "Total features = 50 raw + 14 engineered = 64" and ensure the text uses "64 total features"
+instead of "64 engineered features."
+
+
+Reviewer comment (Page 2, Section IV Model Design, Part A Data Preprocessing and Feature Engineering)
+----------------------------------------------------------------------------------------------------
+Before describing the missing-data handling strategy, the authors should quantify the extent of missingness, including the
+percentage of missing values and the data categories most affected.
+
+
+Where this change applies (source location)
+------------------------------------------
+Paper source (as reviewed): `From Satellite To Silos Final w author.pdf`
+Primary location for this fix: `III. CORN PRODUCTION DATASET CONSTRUCTION` (Table 1 + subsections A–F)
+Secondary cleanup location: `IV. MODEL DESIGN` → `A. Data Preprocessing and Feature Engineering` (remove the generic imputation-threshold paragraph)
+
+
+Current text to adjust (for reference)
+--------------------------------------
+"... To handle outliers, all numeric features were first scaled using robust scalar and then IQR-based outlier detection was applied to remove the outliers. For missing data, we adopted a multi-strategy imputation approach..."
+
+
+Proposed change (move missingness + imputation details into Section III; simplify Section IV)
+-------------------------------------------------------------------------------------------
+1) Move Table 1 ("Data Sources Summary") to the start of Section III.
+- Put it immediately after the opening paragraph of `III. CORN PRODUCTION DATASET CONSTRUCTION`, before subsection A.
+- This makes Table 1 a true "Section III summary" rather than appearing mid-subsection A.
+
+2) Add missingness quantification directly into Table 1.
+- Add two new columns to Table 1:
+  - Missing values (count)
+  - Missing rate (%)
+- Define the measurement clearly (one sentence in the Table 1 caption or a footnote):
+  - "Missingness is measured on the consolidated county-month dataset prior to any imputation (87 counties x 23 years x 7 months = 14,007 rows)."
+
+Recommended Table 1 missingness values (from the consolidated dataset):
+- GLDAS: 0 missing values (0.0%)
+- NASS: 2,247 missing values (16.0%) concentrated in acres planted; corn production is complete
+- EIA diesel: 0 missing values (0.0%)
+- USDA ERS economic indicators: 0 missing values (0.0%) after consolidation
+- Ethanol distance: 0 missing values (0.0%)
+- PRISM: 0 missing values (0.0%)
+- Overall: 2,247 missing cells out of 756,378 total cells (0.30% overall cell-wise missingness)
+
+3) In subsections A–F (Section III), add a short "Missingness and imputation" note per data source.
+- Put a 2–4 sentence paragraph at the end of each subsection (A through F) that states:
+  - whether that source has missingness after joining
+  - what was done about it (if anything)
+  - any feature-exclusion decision (e.g., acres planted excluded from model inputs)
+
+Suggested per-subsection wording (plain text, not LaTeX):
+- A. GLDAS:
+  - "Missingness and imputation: No missing values were observed in the GLDAS variables after consolidation at the county-month level; no imputation was required."
+- B. NASS:
+  - "Missingness and imputation: Corn production values were complete. Acres planted contained 2,247 missing values (16.0%) in the consolidated county-month table; because acres planted was excluded from the model input feature set, this missingness does not affect the predictors used in our main experiments. (If acres planted is included in future work, we impute it using within-county forward/backward fill across years with a county-median fallback.)"
+- C. EIA diesel:
+  - "Missingness and imputation: Diesel price data had no missing values; no imputation was required."
+- D. ERS economic indicators:
+  - "Missingness and imputation: The ERS series exhibited gaps in the raw annual county indicators; during dataset construction we filled gaps using a time-aware strategy (within-county interpolation where possible, then county-median / year-median fallback). After consolidation, the ERS variables used in modeling contain no missing values."
+- E. PRISM:
+  - "Missingness and imputation: PRISM climate variables contained no missing values after matching; no imputation was required."
+- F. Ethanol distance:
+  - "Missingness and imputation: Ethanol distance is a static county attribute with no missing values; no imputation was required."
+
+4) Remove the generic imputation-threshold paragraph from Section IV-A (Model Design).
+- Delete the sentence block that says:
+  - "For features with less than 20% missing values..." / "20-50%" / ">50%" etc.
+- Replace it with a single sentence that points to Section III and states the modeling dataset has no missing predictor values:
+  - "Missingness quantification and source-specific imputation rules are handled during dataset construction (Section III); the final modeling table contains no missing values among the predictors used in our experiments (acres planted excluded)."
+
+
+Rationale (one-liner)
+--------------------
+This makes missingness visible where the data sources are introduced (Table 1 + A–F), avoids duplicating imputation policy in the modeling section, and cleanly explains that the only material missingness is in acres planted (which is excluded from the model inputs).
+
+
+Reviewer comment (Page 5, Section V Experimental Results, Part B Feature Importance Analysis, Table 4)
+----------------------------------------------------------------------------------------------------
+In Table 4, the manuscript reports “Importance” values but does not define what “Importance” means, nor how the values are computed or interpreted. A precise definition is required.
+
+
+Where this change applies (source location)
+------------------------------------------
+Paper source (as reviewed): `From Satellite To Silos Final w author.pdf`
+Section: `V. EXPERIMENTAL RESULTS` → `B. Feature Importance Analysis`
+Table: `Table 4` (Feature importance table for LightGBM; “Rank / Feature / Importance”)
+
+Code provenance (to support the definition; not for the paper itself):
+- `Notebook and Python Files/Notebook/Model_Comparison_NoAcres.ipynb` (trains `lgbm_model`)
+- `Notebook and Python Files/Python Scripts/feature_importance_analysis.py` (extracts `lgbm_model.feature_importances_`)
+
+
+Proposed change (ready-to-paste text to add under Section V-B, before/after Table 4)
+-----------------------------------------------------------------------------------
+Definition of “Importance” (LightGBM split-count importance):
+In this paper, the “Importance” value reported for a feature is the LightGBM split-count feature importance computed from the final trained LightGBM ensemble. Concretely, for feature j:
+
+Importance(j) = sum_{t=1..T} sum_{s in SplitNodes(t)} 1[ feature(s) = j ]
+
+where T is the number of trees in the trained LightGBM model, SplitNodes(t) is the set of internal split nodes in tree t, and 1[·] is the indicator function (1 if the split uses feature j, else 0). Therefore, Importance(j) is an integer that counts how many times feature j is selected as a split variable across all trees in the ensemble (LightGBM’s default `importance_type = "split"` in the sklearn API).
+
+How to interpret the numbers in Table 4:
+- Larger values mean the model relied on that feature more frequently when constructing decision rules (more split usage across the ensemble).
+- The values are unitless and primarily meaningful for ranking features within the same trained LightGBM model/dataset; they are not directly comparable across different model types or differently-configured LightGBM trainings.
+- (Optional, if you want a normalized interpretation): RelativeImportance(j) = Importance(j) / sum_k Importance(k), which yields a percentage-like share of total split usage.
+
+
+Rationale (one-liner)
+--------------------
+This explicitly defines what “Importance” is, how the table values are computed from the trained LightGBM model, and how readers should interpret the raw integers reported in Table 4.

@@ -1,0 +1,355 @@
+Paper Summaries (for Related Work comparison table)
+===================================================
+
+Scope
+-----
+This file summarizes the prior works currently listed in our related-work comparison table:
+- Ji et al. 2022 (ji2022)
+- Shahhosseini et al. 2021 (shahhosseini2021)
+- You et al. 2017 (you2017_dgp)
+- Khaki et al. 2020 (khaki2019_cnn_rnn)
+- Desloires et al. 2024 (desloires2024)
+- Kayad et al. 2019 (kayad2019)
+
+For each paper: methodology, data sources, model parameters (as reported), and results.
+
+
+1) Ji et al. 2022 — "Prediction of Corn Yield in the USA Corn Belt Using Satellite Data and Machine Learning: From an Evapotranspiration Perspective."
+-------------------------------------------------------------------------------------------------------------------------------
+Bib key: ji2022
+Venue: Agriculture (MDPI), 2022. DOI: 10.3390/agriculture12081263
+OpenAlex cited_by_count (approx): 43
+
+Problem / target
+- Target: county-level corn yield.
+- Unit conversion: yield converted from bushels/acre to kg/ha.
+
+Geography / time
+- Region: US Corn Belt.
+- Counties: 766 agricultural counties in 12 states (MN, SD, ND, WI, MI, NE, IA, IL, IN, OH, KS, MO).
+- Years: 2008–2018.
+- Yield samples: n = 6783 (not all county-years available).
+
+Data sources / inputs
+- USDA NASS Quick Stats: county-level yields.
+- Cropland Data Layer (CDL) 30m: used to identify corn-dominated pixels within counties.
+- MODIS (Aqua) products:
+  - EVI: MYD13A2, 16-day composite, 1000m.
+  - LST (daytime): MYD11A2, 8-day composite, 1000m.
+  - LAI: MYD15A2H, 8-day composite, 500m.
+- Monthly series: they average composites to monthly values, then aggregate over corn pixels per county.
+
+Methodology (models)
+- Linear baseline: LASSO (as regularized linear regression + implicit feature selection due to collinearity).
+- ML models: SVR, Random Forest (RF), LSTM.
+- Input feature sets: EVI, LST, LAI individually and combinations (EVI+LST, EVI+LAI, LST+LAI, EVI+LST+LAI).
+- Seasonal/temporal experiments:
+  - Within-season progression: use data from start of growing season up to month m to predict final yield.
+  - Stage contribution experiments: early/peak/late stage partitions.
+
+Model parameters / training details (as reported)
+- SVR:
+  - Kernel candidates: linear, polynomial, RBF, sigmoid.
+  - Hyperparameter tuning ranges (reported):
+    - Penalty C: 1–10 step 1
+    - gamma: 0–1 step 0.02
+    - independent term: −3–3 step 0.2
+    - polynomial degree: 1–7 step 1
+- RF:
+  - Tuned hyperparameters (reported ranges):
+    - # trees: 10–500 step 50
+    - max depth: 10–100 step 5
+    - max features per split: 1–(#variables) step 1
+- LSTM (implemented in TensorFlow):
+  - 3 bidirectional LSTM layers + a fully-connected output layer producing pre1.
+  - County ID modeled via 2 fully-connected layers producing pre2 in (0,1) (sigmoid), final pred = pre2 * pre1.
+  - Regularization: L2
+  - Loss: Huber
+  - Optimizer: Adam
+  - Epochs: 1000 with early stopping (patience = 100)
+  - Their LOYO setup also uses a time-weighted sampling scheme (example proportions: 1:2:4:6:8:10:12:14:16 for years 2008–2016 when predicting 2018, with 2017 as validation).
+
+Evaluation protocol
+- Leave-one-year-out cross-validation (LOYO-CV) across 11 years.
+- For LASSO/SVR/RF: hyperparameters chosen via 3-fold CV on training years, optimizing R^2.
+
+Key results (headline)
+- Mean predicted R^2 = 0.63 for EVI+LAI+LST across methods.
+- Best mean predicted R^2 = 0.67 using LSTM (with EVI+LAI+LST).
+
+
+2) Shahhosseini et al. 2021 — "Corn Yield Prediction With Ensemble CNN–DNN"
+----------------------------------------------------------------------------
+Bib key: shahhosseini2021
+Venue: Frontiers in Plant Science, 2021. DOI: 10.3389/fpls.2021.709008
+
+Problem / target
+- Target: county-level corn yield across the US Corn Belt.
+
+Geography / time
+- 12 states: IL, IN, IA, KS, MI, MN, MO, NE, ND, OH, SD, WI.
+- Historical range: 1980–2019.
+- Test years explicitly mentioned: 2017, 2018, 2019 (used as held-out test years).
+
+Data sources / inputs (as reported)
+- Yield + management: USDA NASS (corn yields per county; weekly planting progress per state).
+- Weather: reanalysis weather database based on NASA POWER + Iowa Environmental Mesonet.
+  - Five weekly-accumulated features:
+    - min air temp, max air temp, precipitation, shortwave radiation, growing degree days.
+  - 52 weeks × 5 = 260 weather features.
+- Soil: SSURGO (soil survey / gSSURGO-style features).
+  - 10 soil variables across 10 depths (0–5 to 120–150 cm).
+- Assumptions: rainfed (irrigation not included to maintain consistency).
+- Preprocessing steps (explicit):
+  - Impute missing planting progress for ND pre-2000 using mean of nearby states (SD and MN).
+  - Remove out-of-season planting progress/weather.
+  - Aggregate weather to quarterly + annual summaries (precip/radiation summed; temperatures averaged).
+  - Drop yield < 10 bu/ac as outliers.
+  - Construct yield_trend feature using location-specific linear regression on year vs yield.
+  - Scale inputs to [0,1].
+
+Methodology (models)
+- Base learners: CNN–DNN network that has:
+  - W-CNN: 1D CNN stack over weekly weather.
+  - S-CNN: 1D CNN stack over soil depth profiles.
+  - FC1: fully-connected network for “other variables”.
+  - FC2: final fully-connected network to combine extracted representations and predict yield.
+- Ensemble generation:
+  - Homogenous ensembles: bagging the same base architecture to create diverse learners.
+  - Heterogenous ensembles: vary CNN hyperparameters (e.g., number of filters) across base learners.
+- Ensemble combination methods:
+  - BEM: simple averaging.
+  - GEM: convex optimization for nonnegative weights summing to 1.
+  - Stacked generalized ensembles: second-level learner among {linear regression, LASSO, RF, LightGBM}.
+- Also compares to individual ML models: linear regression, LASSO, RF, XGBoost, LightGBM.
+
+Model parameters / training details (as reported)
+- CNN details (W-CNN and S-CNN) are VGG-like with average pooling; Table 1 in the paper lists:
+  - Weather CNN: Conv1 FS=6, NF=4, stride=1; then avg pool; Conv2 FS=3, NF=4; avg pool; Conv3 FS=3, NF=4; avg pool.
+  - Soil CNN: Conv1 FS=3, NF=4; avg pool; Conv2 FS=3, NF=4; avg pool; Conv3 FS=3, NF=4; avg pool.
+- FC layer sizes:
+  - FC1: hidden layers 64, 32, 16.
+  - FC2: hidden layers 128, 64.
+- Regularization:
+  - Dropout ratio 0.5 near the end of FC2 (two dropout layers).
+- Optimizer: Adam, learning rate 0.0001.
+- Training: 1000 iterations, batch size 16.
+- Activation: ReLU except linear output layer.
+
+Evaluation protocol
+- Train on 1980–(Y−1), test on year Y for Y ∈ {2017,2018,2019} (as described).
+
+Key results (headline)
+- Best reported: RMSE = 866 kg/ha for 2019 predictions (~8.5% relative RMSE).
+- Reported to explain ~77% of spatio-temporal variation in corn yields (≈ R^2 ~ 0.77).
+- Both homogenous and heterogenous ensembles outperform the individual baselines; homogenous ensembles best.
+
+
+3) You et al. 2017 — "Deep Gaussian Process for Crop Yield Prediction Based on Remote Sensing Data"
+--------------------------------------------------------------------------------------------------
+Bib key: you2017_dgp
+Venue: AAAI-17. DOI: 10.1609/aaai.v31i1.11172
+OpenAlex cited_by_count (approx): 504
+
+Problem / target
+- Target: county-level soybean yield in the US (yield per unit area; bushels per acre).
+
+Geography / time
+- 11 states accounting for >75% of national soybean production.
+- Years: 2003–2015.
+- Data points: |D| = 8945 county-year samples.
+
+Data sources / inputs
+- MODIS-derived remote sensing:
+  - Surface reflectance.
+  - Land surface temperature (LST).
+  - Land cover type.
+- Temporal sampling:
+  - 30 images/year (day 49 to 281 at 8-day intervals).
+- Crop masking:
+  - Uses a generic cropland mask at ~500m to remove non-crop pixels; does not rely on precise crop-type masks for the target crop.
+
+Methodology (models)
+- Dimensionality reduction:
+  - Treat raw images as histograms of pixel counts per band (mean-field assumption across bands).
+  - Discretize each band into b bins (they use b=32) → per-band histogram.
+  - Concatenate across d bands (d=9) → H(t) ∈ R^(b×d), with T=30 time steps.
+- Deep models:
+  - LSTM regression on flattened histogram sequence.
+  - CNN regression on stacked 3D histogram (bins × time × bands), using stride-2 conv instead of pooling to preserve histogram “semantics”.
+- Deep Gaussian Process:
+  - Adds a GP layer on top of deep features to capture residual spatio-temporal correlation.
+  - Kernel includes spatial distance and year distance terms; performs grid search on hyperparameters using closed-form GP equations.
+
+Model parameters / training details (as reported)
+- Histogram settings: b=32 bins; d=9 bands; T=30 observations/year.
+- LSTM:
+  - L2 loss.
+  - Dropout rate 0.75 after each state transition.
+- CNN:
+  - Batch normalization.
+  - Dropout 0.5 after each convolution layer.
+- Evaluation protocol:
+  - For year Y, train on all preceding years; tune learning rates + stopping criteria on held-out 10% validation.
+  - RMSE is averaged over 2 runs for deep models.
+
+Key results (Table 1 in paper)
+- RMSE (bu/ac), averaged across 2011–2015:
+  - Ridge: 7.96
+  - Decision tree: 7.73
+  - DNN (NDVI-based): 8.32
+  - LSTM: 6.27
+  - LSTM+GP: 5.83
+  - CNN: 5.77
+  - CNN+GP: 5.55 (best average in table)
+- They also claim: ~30% RMSE reduction vs best competing methods, and ~15% MAPE improvement vs USDA national-level estimates (as stated in paper).
+
+
+4) Khaki et al. 2020 — "A CNN-RNN Framework for Crop Yield Prediction"
+----------------------------------------------------------------------
+Bib key: khaki2019_cnn_rnn
+Venue: Frontiers in Plant Science, 2020. DOI: 10.3389/fpls.2019.01750
+OpenAlex cited_by_count (approx): 520
+
+Problem / target
+- Target: county-level corn yield and soybean yield (bushels per acre).
+
+Geography / time
+- Region: US Corn Belt, 13 states.
+- Historical yield data: 1980–2018.
+- Validation years: 2016, 2017, 2018 (train uses years before validation year).
+- Locations with ground truth in validation years:
+  - Corn: 914 (2016), 910 (2017), 807 (2018)
+  - Soybean: 798 (2016), 800 (2017), 684 (2018)
+
+Data sources / inputs (as reported)
+- Yield performance: USDA NASS county yields.
+- Management: weekly cumulative planting progress per state (52 features/year).
+- Weather: Daymet daily records (6 variables):
+  - precipitation, solar radiation, snow water equivalent, max temp, min temp, vapor pressure.
+  - Preprocessing: daily → weekly average (dimension reduction ~365→52).
+- Soil: gSSURGO soil variables:
+  - 10 soil variables at 10 depths (0–5 to 100–120 cm).
+  - Plus 4 surface-only soil variables (slope; NCCPI for corn; NCCPI all crops; root zone depth).
+- Missingness handling:
+  - Soil missing values (6.7%) imputed with mean of same variable across counties.
+  - Management missing (6.3%) imputed with mean of same variable across counties in same year.
+
+Methodology (model)
+- Hybrid architecture: W-CNN (weather), S-CNN (soil), FC, and an RNN layer capturing inter-annual dependencies (genetic/tech trend proxy).
+  - W-CNN: 1D conv over weekly weather sequence.
+  - S-CNN: 1D conv over soil depth profile.
+  - FC: combines extracted features.
+  - RNN: LSTM cells using k-year context; includes average yield trend proxy.
+- Baselines compared: RF, DFNN, LASSO.
+
+Model parameters / training details (as reported)
+- W-CNN and S-CNN: 4 convolutional layers each (detailed structure in Supplementary Table S2).
+- Downsampling: average pooling stride 2.
+- FC sizes:
+  - After W-CNN: FC with 60 neurons (corn) / 40 neurons (soybean).
+  - After S-CNN: FC with 40 neurons.
+- RNN:
+  - time length k = 5 years (5-year dependencies).
+  - LSTM hidden units = 64.
+- Initialization: Xavier.
+- Optimization:
+  - SGD mini-batch size 25.
+  - Adam learning rate 0.03% (3e-4) halved every 60,000 iterations.
+  - Max iterations: 350,000.
+- Activations: ReLU (CNNs and FC), linear output.
+- Compute: training about ~1 hour on CPU i7-4790 3.6GHz (as reported).
+- RF baseline: 50 trees, max depth 10 (selected via trials).
+- DFNN baseline: 9 layers, 50 neurons/layer + batch norm + residual learning (as per their cited prior work).
+- LASSO baseline: L1 coefficient tuned, best ~0.3–0.5.
+
+Key results (Tables 1–3 in paper; RMSE in bu/ac)
+- Corn (validation RMSE; validation correlation coefficient in %):
+  - CNN-RNN: 2016 RMSE 16.48 (85.82%), 2017 RMSE 15.74 (88.24%), 2018 RMSE 17.64 (87.82%)
+  - RF: 25.48, 29.40, 26.02
+  - DFNN: 27.23, 23.88, 21.37
+  - LASSO: 32.58, 27.06, 31.30
+- Soybean:
+  - CNN-RNN: 2016 RMSE 4.15 (85.45%), 2017 RMSE 4.32 (87.08%), 2018 RMSE 4.91 (87.09%)
+  - RF: 8.69, 8.61, 12.78
+  - DFNN: 7.51, 6.25, 5.89
+  - LASSO: 8.05, 7.66, 9.49
+- They summarize this as ~9% (corn) and ~8% (soybean) RMSE relative to average yields.
+
+
+5) Desloires et al. 2024 — "Early Season Forecasting of Corn Yield at Field Level from Multi-Source Satellite Time Series Data"
+----------------------------------------------------------------------------------------------------------------------------
+Bib key: desloires2024
+Venue: Remote Sensing (MDPI), 2024. DOI: 10.3390/rs16091573
+OpenAlex cited_by_count (approx): 6
+
+Problem / target
+- Target: field-level corn yield forecasting during the ongoing season (early-season forecast).
+
+Geography / time
+- Dataset: 1319 corn fields in the US Corn Belt.
+- Years: 2017–2022.
+- Note: yields are described as scaled/normalized for confidentiality (min–max scaling across fields), per the paper’s dataset description.
+
+Data sources / inputs (as reported)
+- Sentinel-2:
+  - Biophysical parameters (e.g., LAI and leaf chlorophyll content Cab; derived via SNAP ANN).
+  - Time series smoothing: linear interpolation + Savitzky–Golay.
+- Landsat:
+  - Land Surface Temperature (LST) via single-channel algorithm; resampled to 50m; outlier masking and smoothing.
+- ERA5 / ERA5T:
+  - Agroclimatic variables (temperature series, heat days, GDD, etc.).
+- In-situ features:
+  - Cultivar duration / maturity group, irrigation flag, coarse location.
+
+Methodology (as described in paper)
+- Key idea: resample time series by thermal time (GDD) rather than calendar time to reduce phenology shifts across seasons/locations.
+- Handles partial early-season data availability; proposes a two-stage ML strategy:
+  - Extends/forecasts an additional period based on historical data.
+  - Adapts inference based on how many periods are available.
+- Uses Random Forest as a core model for yield prediction with multiple models tuned to crop progress (and discusses LST’s contribution to early drought detection).
+
+Model parameters (partial; what is explicitly stated in accessible sections)
+- RF models (in described strategy): scikit-learn; empirically parameterized with 500 trees and max depth 7 (as stated in Methods section excerpt).
+- Other hyperparameters/metrics exist in the full paper, but the MDPI “XML” download endpoint was blocked by an anti-bot interstitial at the time of extraction, and the PDF scrape we captured did not include the Results tables/metrics.
+
+Results (what we can state without guessing)
+- The paper explicitly claims:
+  - Thermal-time resampling significantly improves predictive performance.
+  - Adding Landsat LST improves in-season forecasting (early drought signal not visible in optical).
+- TODO (if you want exact numbers filled in): manually open the PDF and extract their main reported metric(s) (R^2 / RMSE / normalized RMSE) at the chosen cutoff date(s), then we can add them to our table and this summary.
+
+
+6) Kayad et al. 2019 — "Monitoring Within-Field Variability of Corn Yield using Sentinel-2 and Machine Learning Techniques"
+--------------------------------------------------------------------------------------------------------------------------
+Bib key: kayad2019
+Venue: Remote Sensing (MDPI), 2019. DOI: 10.3390/rs11232873
+OpenAlex cited_by_count (approx): 155
+
+Problem / target
+- Target: within-field corn grain yield variability (monitoring + prediction at within-field scale).
+
+Geography / time
+- Study site: one 22-ha field in North Italy.
+- Seasons: 2016–2018.
+- Ground truth: >20,000 georeferenced yield points per season from a yield monitor on a harvester.
+
+Data sources / inputs
+- Sentinel-2 imagery:
+  - 34 images across crop ages; vegetation indices computed.
+
+Methodology (as reported in abstract)
+- Correlate vegetation indices vs observed yield points.
+- Evaluate regression + ML models for predicting within-field yield variability.
+
+Model parameters
+- Not reported in the abstract excerpt we captured. (The PDF fetch timed out in this environment.)
+
+Key results (headline from abstract)
+- Monitoring:
+  - GNDVI had highest R^2 = 0.48 for monitoring within-field variability.
+- Prediction:
+  - Random Forest was the most accurate ML approach for prediction, with R^2 ≈ 0.6 on an independent validation set (half of the observations).
+- Timing:
+  - Best monitoring period: crop age ~105–135 days after planting (R4–R6).
+
